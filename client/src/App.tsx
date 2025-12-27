@@ -21,6 +21,9 @@ import SubstitutionsPage from "@/pages/Substitutions";
 import TimetableManagementPage from "@/pages/TimetableManagement";
 import FaceRegistrationPage from "@/pages/FaceRegistration";
 import CameraSimulatorPage from "@/pages/CameraSimulator";
+import StudentsPage from "@/pages/Students";
+import StaffPage from "@/pages/Staff";
+import SchoolOnboardingPage from "@/pages/SchoolOnboarding";
 import NotFound from "@/pages/not-found";
 
 // Layout Wrapper for protected routes
@@ -108,6 +111,15 @@ function Router() {
       </Route>
       <Route path="/camera-simulator">
         <ProtectedRoute component={CameraSimulatorPage} />
+      </Route>
+      <Route path="/students">
+        <ProtectedRoute component={StudentsPage} />
+      </Route>
+      <Route path="/staff">
+        <ProtectedRoute component={StaffPage} />
+      </Route>
+      <Route path="/school-onboarding">
+        <ProtectedRoute component={SchoolOnboardingPage} />
       </Route>
 
       {/* 404 */}

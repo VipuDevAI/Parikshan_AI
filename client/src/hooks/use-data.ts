@@ -11,7 +11,7 @@ export function useAlerts() {
       if (!res.ok) throw new Error("Failed to fetch alerts");
       return api.alerts.list.responses[200].parse(await res.json());
     },
-    refetchInterval: 10000, // Poll every 10s for new AI alerts
+    refetchInterval: 30000, // Poll every 30s for new AI alerts (reduced from 10s)
   });
 }
 

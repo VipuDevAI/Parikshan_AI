@@ -13,7 +13,8 @@ import {
   RefreshCw,
   FileSpreadsheet,
   ScanFace,
-  Camera
+  Camera,
+  Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,23 +22,31 @@ export function Sidebar() {
   const [location] = useLocation();
   const { logout, user } = useAuth();
 
-  const links = [
+  const baseLinks = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/timetable", label: "Timetable", icon: Calendar },
     { href: "/timetable-management", label: "Timetable Setup", icon: FileSpreadsheet },
     { href: "/attendance", label: "Attendance", icon: ClipboardList },
+    { href: "/students", label: "Students", icon: GraduationCap },
+    { href: "/staff", label: "Staff", icon: Users },
     { href: "/face-registration", label: "Face Registration", icon: ScanFace },
     { href: "/alerts", label: "AI Insights", icon: Bell },
     { href: "/leave", label: "Leave Requests", icon: CalendarOff },
     { href: "/substitutions", label: "Substitutions", icon: RefreshCw },
-    { href: "/students", label: "Students", icon: GraduationCap },
-    { href: "/users", label: "Staff", icon: Users },
     { href: "/settings", label: "Settings", icon: Settings },
-    { href: "/camera-simulator", label: "Camera Test", icon: Camera },
   ];
+
+  // Add school onboarding for SUPER_ADMIN only
+  const adminLinks = user?.role === "SUPER_ADMIN" 
+    ? [{ href: "/school-onboarding", label: "School Onboarding", icon: Building2 }]
+    : [];
+
+  const links = [...baseLinks, ...adminLinks];
 
   const filteredLinks = user?.role === "PARENT" 
     ? links.filter(l => ["/", "/attendance", "/timetable"].includes(l.href))
+    : user?.role === "TEACHER"
+    ? links.filter(l => ["/", "/timetable", "/attendance", "/leave", "/substitutions"].includes(l.href))
     : links;
 
   return (

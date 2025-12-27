@@ -27,11 +27,21 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-background">
+    <div className="min-h-screen w-full flex ai-background">
+      {/* Animated AI particles */}
+      <div className="ai-particles" />
+      
       {/* Left Panel - Forest Green Branding */}
-      <div className="hidden lg:flex w-1/2 relative overflow-hidden items-center justify-center p-12 text-white bg-[hsl(145,45%,22%)]">
-        {/* Subtle pattern overlay */}
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      <div className="hidden lg:flex w-1/2 relative overflow-hidden items-center justify-center p-12 text-white">
+        {/* Glowing orbs */}
+        <div className="absolute top-20 left-20 w-64 h-64 rounded-full bg-gradient-to-br from-emerald-500/20 to-transparent blur-3xl animate-pulse" />
+        <div className="absolute bottom-20 right-20 w-80 h-80 rounded-full bg-gradient-to-tl from-green-400/15 to-transparent blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+        
+        {/* Grid lines */}
+        <div className="absolute inset-0 opacity-20" style={{ 
+          backgroundImage: 'linear-gradient(hsla(145, 60%, 50%, 0.1) 1px, transparent 1px), linear-gradient(90deg, hsla(145, 60%, 50%, 0.1) 1px, transparent 1px)',
+          backgroundSize: '50px 50px'
+        }} />
 
         <div className="relative z-10 max-w-lg text-center space-y-6">
           {/* Logo */}
@@ -68,11 +78,11 @@ export default function AuthPage() {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 relative z-10">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md space-y-8 bg-card p-8 rounded-2xl shadow-xl border border-border/50"
+          className="w-full max-w-md space-y-8 bg-white/95 dark:bg-card/95 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-white/20 dark:border-border/50"
         >
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-4">
@@ -119,7 +129,7 @@ export default function AuthPage() {
                 <input
                   {...form.register("schoolCode")}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                  placeholder="PARIKSHAN001"
+                  placeholder="Enter school code"
                   data-testid="input-school-code"
                 />
               </div>
@@ -135,7 +145,7 @@ export default function AuthPage() {
                 <input
                   {...form.register("username")}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                  placeholder={activeTab === 'staff' ? "admin" : "parent@email.com"}
+                  placeholder={activeTab === 'staff' ? "Enter username" : "Enter email"}
                   data-testid="input-username"
                 />
               </div>
@@ -152,7 +162,7 @@ export default function AuthPage() {
                   type="password"
                   {...form.register("password")}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                  placeholder="password123"
+                  placeholder="Enter password"
                   data-testid="input-password"
                 />
               </div>
@@ -171,7 +181,7 @@ export default function AuthPage() {
 
             <button
               disabled={isLoggingIn}
-              className="w-full py-3 rounded-xl gradient-primary text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl gradient-primary text-white font-bold text-base shadow-lg shadow-emerald-900/40 hover:shadow-xl hover:shadow-emerald-800/50 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-emerald-600/30"
               data-testid="button-login"
             >
               {isLoggingIn ? (
@@ -188,9 +198,8 @@ export default function AuthPage() {
             </button>
           </form>
 
-          <div className="text-center text-xs text-muted-foreground space-y-1">
-            <p>Demo credentials: <span className="font-mono bg-muted px-2 py-0.5 rounded">admin / password123</span></p>
-            <p className="mt-2">&copy; 2025 Parikshan.AI - Smart School Intelligence</p>
+          <div className="text-center text-xs text-muted-foreground">
+            <p>&copy; 2025 Parikshan.AI - Smart School Intelligence</p>
           </div>
         </motion.div>
       </div>
