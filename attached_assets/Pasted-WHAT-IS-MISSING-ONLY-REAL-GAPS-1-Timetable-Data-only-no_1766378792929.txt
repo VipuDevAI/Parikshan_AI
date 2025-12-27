@@ -1,0 +1,170 @@
+WHAT IS MISSING (ONLY REAL GAPS)
+1️⃣ Timetable = Data only, not Intelligence
+
+Timetable generation logic is missing
+
+No preference engine
+
+No wing-wise / whole-school generation switch
+
+No lab double-period logic
+
+No II / III language combination logic
+
+No PPW / MPPD enforcement
+
+No after-lunch light period logic
+
+No master timetable FREEZE logic
+
+➡️ Your GAS timetable logic is NOT yet ported
+
+2️⃣ Substitution = Basic, not Smart
+
+No subject match priority
+
+No class familiarity priority
+
+No period-gap avoidance
+
+No overload avoidance (7+ periods rule)
+
+No partial leave (permission 1–2 periods) handling
+
+No ON-DUTY / INCHARGE duty logic
+
+No leave deadline (6:45 AM) enforcement
+
+No wing-wise master timetable usage
+
+➡️ Your GAS substitution logic is NOT yet ported
+
+3️⃣ Camera AI = Hook only
+
+Camera registry exists ✔️
+
+Image upload exists ✔️
+
+BUT:
+
+No face registration API
+
+No teacher attendance AI logic
+
+No student attendance AI logic
+
+No rule engine per camera type
+
+No “no teacher in class” timer logic
+
+No inattentive students detection logic
+
+4️⃣ Attendance Rules Missing
+
+Full-day / half-day / permission mapping not enforced
+
+LATE / HALF_DAY rules not calculated
+
+INCHARGE duty attendance override missing
+
+5️⃣ Alert Pipeline is Flat
+
+AI → Alert directly
+
+Missing:
+
+Event log table
+
+Rule engine layer
+
+Escalation logic
+
+Alert acknowledgment flow
+
+6️⃣ Integration Logic Missing
+
+WhatsApp / Arattai webhook stored ✔️
+
+BUT:
+
+No IntegrationService
+
+No retry / failure handling
+
+No delivery status tracking
+
+No role-based notification routing
+
+7️⃣ Role Enforcement is Soft
+
+Roles exist in schema ✔️
+
+BUT:
+
+No backend role middleware
+
+No hard permission blocks
+
+Parents not strictly read-only enforced
+
+8️⃣ Frontend Gaps
+
+Principal “all-seeing” dashboard not yet built
+
+Wing admin config-only dashboard not strict
+
+Teacher dashboard not limited to own classes
+
+Parent dashboard not limited to own child
+
+No mobile-first tuning yet
+
+✅ WHAT NEEDS TO BE DONE (FULFILLMENT LIST)
+🔧 BACKEND
+
+Port GAS Timetable Generator → TimetableEngine
+
+Port GAS Substitution Logic → SubstitutionEngine
+
+Add Camera Rule Engine
+
+Add Attendance AI Service
+
+Add Alert Rule Engine
+
+Add IntegrationService (WhatsApp / Arattai / Connecto)
+
+Add Role-based middleware
+
+Add Leave deadline enforcement
+
+Add Master timetable freeze logic
+
+🎨 FRONTEND
+
+Build Principal mega dashboard
+
+Restrict Wing admin to config only
+
+Simplify Teacher dashboard
+
+Lock Parent dashboard to alerts only
+
+Improve mobile responsiveness
+
+Add school logo & branding everywhere
+
+🚀 OPERATIONS
+
+Create seed + production env separation
+
+Add basic audit logs
+
+Add school-level feature toggles
+
+🧠 FINAL TRUTH (ONE LINE)
+
+👉 Architecture is DONE. Data model is DONE. Deployment is READY.
+👉 Only INTELLIGENCE + RULES are pending.
+
+That’s it machi.

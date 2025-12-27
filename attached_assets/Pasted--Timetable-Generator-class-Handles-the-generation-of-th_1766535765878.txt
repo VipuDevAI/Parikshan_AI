@@ -1,0 +1,688 @@
+/**
+ * Timetable Generator class
+ * Handles the generation of the timetable based on teacher data, sections, and constraints
+ */
+class TimetableGenerator {
+  constructor(teachers, sections, config) {
+    this.teachers = teachers;
+    this.sections = sections;
+    this.config = config;
+    this.timetable = [];
+    this.logEntries = [];
+    this.sectionPeriods = {}; // Track filled periods for each section
+    this.teacherPeriods = {}; // Track filled periods for each teacher
+    this.sln = 1; // Serial number for timetable entries
+  }
+  
+  /**
+   * Main function to generate the timetable
+   */
+  generate() {
+    try {
+      this.initializeTrackers();
+      
+      // First, assign class teacher periods
+      this.assignClassTeacherPeriods();
+      
+      // Assign language section periods
+      this.assignLanguagePeriods();
+      
+      // Assign lab sessions
+      this.assignLabSessions();
+      
+      // Fill remaining periods
+      this.fillRemainingPeriods();
+      
+      // Write timetable to sheet
+      this.writeTimetableToSheet();
+      
+      // Write log entries to sheet
+      this.writeLogToSheet();
+      
+      return { success: true };
+    } catch (error) {
+      Logger.log('Error generating timetable: ' + error.message);
+      return { success: false, message: error.message };
+    }
+  }
+  
+  /**
+   * Initialize tracking structures for sections and teachers
+   */
+  initializeTrackers() {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].slice(0, this.config['Days per Week']);
+    
+    // Initialize section periods tracker
+    for (const section of this.sections) {
+      this.sectionPeriods[section.sectionCode] = {};
+      for (const day of days) {
+        this.sectionPeriods[section.sectionCode][day] = {};
+        for (let period = 1; period <= this.config['Periods per Day']; period++) {
+          if (period === this.config['Lunch Period']) {
+            this.sectionPeriods[section.sectionCode][day][`Lunch`] = { filled: true, teacher: 'LUNCH', subject: 'LUNCH' };
+          } else {
+            this.sectionPeriods[section.sectionCode][day][`Period ${period}`] = { filled: false };
+          }
+        }
+      }
+    }
+    
+    // Initialize teacher periods tracker
+    for (const teacher of this.teachers) {
+      this.teacherPeriods[teacher.name] = {};
+      for (const day of days) {
+        this.teacherPeriods[teacher.name][day] = {};
+        for (let period = 1; period <= this.config['Periods per Day']; period++) {
+          if (period === this.config['Lunch Period']) {
+            this.teacherPeriods[teacher.name][day][`Lunch`] = { filled: true, section: 'LUNCH', subject: 'LUNCH' };
+          } else {
+            this.teacherPeriods[teacher.name][day][`Period ${period}`] = { filled: false };
+          }
+        }
+      }
+    }
+  }
+  
+  /**
+   * Assign class teacher periods first
+   */
+  assignClassTeacherPeriods() {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].slice(0, this.config['Days per Week']);
+    
+    // Get class teachers
+    const classTeachers = this.teachers.filter(t => t.classTeacher);
+    
+    for (const teacher of classTeachers) {
+      // Find section for this class teacher (assuming one class teacher per section)
+      const sectionCode = this.findSectionForClassTeacher(teacher);
+      
+      if (!sectionCode) {
+        this.logEntries.push({
+          teacherName: teacher.name,
+          section: 'N/A',
+          day: 'N/A',
+          period: 'N/A',
+          reason: 'Class teacher without a section'
+        });
+        continue;
+      }
+      
+      // Add class teacher period at the beginning of the day
+      for (const day of days) {
+        // Prioritize first period for class teacher
+        const period = `Period 1`;
+        
+        if (!this.sectionPeriods[sectionCode][day][period].filled && 
+            !this.teacherPeriods[teacher.name][day][period].filled) {
+          
+          // Add to timetable
+          this.addTimetableEntry(teacher.name, sectionCode, day, period, teacher.subject);
+        } else {
+          // Try other periods if first is not available
+          let assigned = false;
+          for (let p = 2; p <= this.config['Periods per Day']; p++) {
+            if (p === this.config['Lunch Period']) continue;
+            
+            const altPeriod = `Period ${p}`;
+            if (!this.sectionPeriods[sectionCode][day][altPeriod].filled && 
+                !this.teacherPeriods[teacher.name][day][altPeriod].filled) {
+              
+              // Add to timetable
+              this.addTimetableEntry(teacher.name, sectionCode, day, altPeriod, teacher.subject);
+              assigned = true;
+              break;
+            }
+          }
+          
+          if (!assigned) {
+            this.logEntries.push({
+              teacherName: teacher.name,
+              section: sectionCode,
+              day: day,
+              period: period,
+              reason: 'Could not assign class teacher period'
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  /**
+   * Find the section for a class teacher
+   */
+  findSectionForClassTeacher(teacher) {
+    // This is a simplified assumption - in reality, you may have mapping in your data
+    // For now, we'll match by looking at the section codes matching the subject name
+    
+    // Try to find a section that matches the teacher's subject
+    for (const section of this.sections) {
+      // Example logic: Math teacher -> X A1 (Math section)
+      if (section.sectionCode.includes(teacher.subject)) {
+        return section.sectionCode;
+      }
+    }
+    
+    // If no match found, assign to first available section
+    if (this.sections.length > 0) {
+      return this.sections[0].sectionCode;
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Assign language periods for II and III language sections
+   */
+  assignLanguagePeriods() {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].slice(0, this.config['Days per Week']);
+    
+    // Get language teachers
+    const languageTeachers = this.teachers.filter(t => 
+      t.subject === 'II Language' || t.subject === 'III Language' || 
+      t.iiLanguageSections.length > 0 || t.iiiLanguageSections.length > 0);
+    
+    // First handle II language teachers who combine sections
+    const combiningTeachers = languageTeachers.filter(t => t.iiLanguageCombine);
+    
+    for (const teacher of combiningTeachers) {
+      // Get the sections this teacher is responsible for
+      const teacherSections = teacher.iiLanguageSections;
+      
+      if (!teacherSections || teacherSections.length === 0) {
+        this.logEntries.push({
+          teacherName: teacher.name,
+          section: 'N/A',
+          day: 'N/A',
+          period: 'N/A',
+          reason: 'Language teacher (combining) without assigned sections'
+        });
+        continue;
+      }
+      
+      // Determine how many periods per week for each language
+      const periodsPerWeek = teacher.ppw / teacherSections.length;
+      
+      // Distribute these evenly across days
+      for (const sectionCode of teacherSections) {
+        let periodCount = 0;
+        let dayIndex = 0;
+        
+        while (periodCount < periodsPerWeek && dayIndex < days.length) {
+          const day = days[dayIndex];
+          
+          // Try to find suitable periods
+          // For language classes, ideally place them in morning periods
+          for (let p = 2; p <= 4; p++) {
+            if (p === this.config['Lunch Period']) continue;
+            
+            const period = `Period ${p}`;
+            
+            // Check if this period is free for both teacher and all involved sections
+            let canAssign = !this.teacherPeriods[teacher.name][day][period].filled;
+            
+            // Check if this period is free for the section
+            if (canAssign && this.sectionPeriods[sectionCode] && 
+                !this.sectionPeriods[sectionCode][day][period].filled) {
+              
+              // Add to timetable
+              this.addTimetableEntry(teacher.name, sectionCode, day, period, 
+                                   teacher.languageSubject || teacher.subject);
+              
+              periodCount++;
+              break;
+            }
+          }
+          
+          dayIndex++;
+          if (dayIndex >= days.length) {
+            dayIndex = 0;
+            
+            // If we've tried all days with preferred periods, try other periods
+            for (let p = 5; p <= this.config['Periods per Day']; p++) {
+              if (p === this.config['Lunch Period']) continue;
+              
+              const period = `Period ${p}`;
+              const day = days[dayIndex % days.length];
+              
+              if (!this.teacherPeriods[teacher.name][day][period].filled &&
+                  this.sectionPeriods[sectionCode] && 
+                  !this.sectionPeriods[sectionCode][day][period].filled) {
+                
+                // Add to timetable
+                this.addTimetableEntry(teacher.name, sectionCode, day, period, 
+                                     teacher.languageSubject || teacher.subject);
+                
+                periodCount++;
+                break;
+              }
+              
+              dayIndex++;
+            }
+            
+            break; // If still not enough periods, we'll log it
+          }
+        }
+        
+        if (periodCount < periodsPerWeek) {
+          this.logEntries.push({
+            teacherName: teacher.name,
+            section: sectionCode,
+            day: 'Multiple',
+            period: 'Multiple',
+            reason: `Could only assign ${periodCount}/${periodsPerWeek} language periods`
+          });
+        }
+      }
+    }
+    
+    // Now handle regular language teachers
+    const regularLanguageTeachers = languageTeachers.filter(t => !t.iiLanguageCombine);
+    
+    for (const teacher of regularLanguageTeachers) {
+      // Similar logic as above but without combining sections
+      const teacherSections = teacher.iiLanguageSections.length > 0 ? 
+        teacher.iiLanguageSections : teacher.iiiLanguageSections;
+      
+      if (!teacherSections || teacherSections.length === 0) {
+        // Default behavior - assign to sections that have this language option
+        // This is a simplified approach - in reality, you'd have explicit mappings
+        for (const section of this.sections) {
+          if (teacher.subject === 'II Language' && 
+              section.iiLanguageOptions.includes(teacher.languageSubject)) {
+            this.assignLanguagePeriodsToSection(teacher, section.sectionCode, days);
+          } else if (teacher.subject === 'III Language' && 
+                     section.iiiLanguageOptions.includes(teacher.languageSubject)) {
+            this.assignLanguagePeriodsToSection(teacher, section.sectionCode, days);
+          }
+        }
+      } else {
+        // Assign to explicitly defined sections
+        for (const sectionCode of teacherSections) {
+          this.assignLanguagePeriodsToSection(teacher, sectionCode, days);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Helper function to assign language periods to a specific section
+   */
+  assignLanguagePeriodsToSection(teacher, sectionCode, days) {
+    // Calculate periods needed for this section
+    const periodsPerWeek = Math.ceil(teacher.ppw / (teacher.iiLanguageSections.length || 1));
+    let periodCount = 0;
+    let dayIndex = 0;
+    
+    while (periodCount < periodsPerWeek && dayIndex < days.length * 2) { // Double loop to try all possibilities
+      const day = days[dayIndex % days.length];
+      
+      // Try periods in order of preference
+      for (let p = 2; p <= this.config['Periods per Day']; p++) {
+        if (p === this.config['Lunch Period']) continue;
+        
+        const period = `Period ${p}`;
+        
+        if (!this.teacherPeriods[teacher.name][day][period].filled &&
+            this.sectionPeriods[sectionCode] && 
+            !this.sectionPeriods[sectionCode][day][period].filled) {
+          
+          // Add to timetable
+          this.addTimetableEntry(teacher.name, sectionCode, day, period, 
+                               teacher.languageSubject || teacher.subject);
+          
+          periodCount++;
+          break;
+        }
+      }
+      
+      dayIndex++;
+      
+      if (periodCount >= periodsPerWeek) break;
+      
+      if (dayIndex >= days.length * 2) {
+        this.logEntries.push({
+          teacherName: teacher.name,
+          section: sectionCode,
+          day: 'Multiple',
+          period: 'Multiple',
+          reason: `Could only assign ${periodCount}/${periodsPerWeek} language periods`
+        });
+      }
+    }
+  }
+  
+  /**
+   * Assign lab sessions based on labSessions count for teachers
+   */
+  assignLabSessions() {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].slice(0, this.config['Days per Week']);
+    
+    // Get teachers with lab sessions
+    const labTeachers = this.teachers.filter(t => t.labSessions > 0);
+    
+    for (const teacher of labTeachers) {
+      let labsAssigned = 0;
+      
+      // Try to distribute lab sessions across days
+      for (const day of days) {
+        if (labsAssigned >= teacher.labSessions) break;
+        
+        // Lab sessions are typically longer - try to assign consecutive periods
+        // For simplicity, we'll try to use lab eligible periods defined in config
+        for (const labPeriod of this.config['Lab Eligible Periods']) {
+          const period1 = `Period ${labPeriod}`;
+          const period2 = `Period ${labPeriod + 1}`;
+          
+          // Find a section that is free for both periods
+          for (const section of this.sections) {
+            const sectionCode = section.sectionCode;
+            
+            // Check if both periods are free for teacher and section
+            if (!this.teacherPeriods[teacher.name][day][period1].filled &&
+                !this.teacherPeriods[teacher.name][day][period2].filled &&
+                this.sectionPeriods[sectionCode] && 
+                !this.sectionPeriods[sectionCode][day][period1].filled &&
+                !this.sectionPeriods[sectionCode][day][period2].filled) {
+              
+              // Add to timetable for both periods
+              this.addTimetableEntry(teacher.name, sectionCode, day, period1, 
+                                   `${teacher.subject} (Lab)`);
+              this.addTimetableEntry(teacher.name, sectionCode, day, period2, 
+                                   `${teacher.subject} (Lab)`);
+              
+              labsAssigned++;
+              break;
+            }
+          }
+          
+          if (labsAssigned >= teacher.labSessions) break;
+        }
+      }
+      
+      if (labsAssigned < teacher.labSessions) {
+        this.logEntries.push({
+          teacherName: teacher.name,
+          section: 'Multiple',
+          day: 'Multiple',
+          period: 'Multiple',
+          reason: `Could only assign ${labsAssigned}/${teacher.labSessions} lab sessions`
+        });
+      }
+    }
+  }
+  
+  /**
+   * Fill remaining periods based on teacher PPW requirements
+   */
+  fillRemainingPeriods() {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].slice(0, this.config['Days per Week']);
+    
+    // Calculate how many periods each teacher still needs to fulfill their PPW
+    for (const teacher of this.teachers) {
+      let assignedPeriods = this.countAssignedPeriods(teacher.name);
+      let periodsNeeded = teacher.ppw - assignedPeriods;
+      
+      if (periodsNeeded <= 0) continue;
+      
+      // Track periods per day to respect MPPD
+      const periodsPerDay = {};
+      for (const day of days) {
+        periodsPerDay[day] = this.countPeriodsForTeacherOnDay(teacher.name, day);
+      }
+      
+      // Assign remaining periods
+      for (const section of this.sections) {
+        if (periodsNeeded <= 0) break;
+        
+        const sectionCode = section.sectionCode;
+        
+        // Go through days and periods
+        for (const day of this.shuffleArray([...days])) {
+          if (periodsNeeded <= 0) break;
+          
+          // Skip if teacher already reached max periods per day
+          if (periodsPerDay[day] >= teacher.mppd) continue;
+          
+          // Try all periods except lunch
+          for (let p = 1; p <= this.config['Periods per Day']; p++) {
+            if (p === this.config['Lunch Period']) continue;
+            
+            // Skip after lunch periods if teacher has that constraint
+            if (teacher.noAfterLunch && p > this.config['After Lunch Start']) continue;
+            
+            const period = `Period ${p}`;
+            
+            // Check if period is free for both teacher and section
+            if (!this.teacherPeriods[teacher.name][day][period].filled &&
+                this.sectionPeriods[sectionCode] && 
+                !this.sectionPeriods[sectionCode][day][period].filled) {
+              
+              // Add to timetable
+              this.addTimetableEntry(teacher.name, sectionCode, day, period, teacher.subject);
+              
+              periodsNeeded--;
+              periodsPerDay[day]++;
+              
+              if (periodsNeeded <= 0 || periodsPerDay[day] >= teacher.mppd) break;
+            }
+          }
+        }
+      }
+      
+      // Log if teacher still needs periods
+      if (periodsNeeded > 0) {
+        this.logEntries.push({
+          teacherName: teacher.name,
+          section: 'Multiple',
+          day: 'Multiple',
+          period: 'Multiple',
+          reason: `Could not fulfill PPW requirement, short by ${periodsNeeded} periods`
+        });
+      }
+    }
+    
+    // Check for unfilled section periods and fill them with "FREE"
+    for (const section of this.sections) {
+      const sectionCode = section.sectionCode;
+      
+      for (const day of days) {
+        for (let p = 1; p <= this.config['Periods per Day']; p++) {
+          if (p === this.config['Lunch Period']) continue;
+          
+          const period = `Period ${p}`;
+          
+          if (this.sectionPeriods[sectionCode] && 
+              !this.sectionPeriods[sectionCode][day][period].filled) {
+            // Fill with FREE
+            this.addFreePeriod(sectionCode, day, period);
+          }
+        }
+      }
+    }
+  }
+  
+  /**
+   * Add a free period to the timetable
+   */
+  addFreePeriod(sectionCode, day, period) {
+    // Add an entry to the timetable with FREE as subject
+    const entry = {
+      sln: this.sln++,
+      teacherName: "FREE",
+      section: sectionCode,
+      day: day,
+      [period]: "FREE"
+    };
+    
+    this.timetable.push(entry);
+    
+    // Mark section period as filled
+    this.sectionPeriods[sectionCode][day][period] = { 
+      filled: true, 
+      teacher: "FREE", 
+      subject: "FREE" 
+    };
+  }
+  
+  /**
+   * Count total assigned periods for a teacher
+   */
+  countAssignedPeriods(teacherName) {
+    let count = 0;
+    
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].slice(0, this.config['Days per Week']);
+    
+    for (const day of days) {
+      count += this.countPeriodsForTeacherOnDay(teacherName, day);
+    }
+    
+    return count;
+  }
+  
+  /**
+   * Count periods for a teacher on a specific day
+   */
+  countPeriodsForTeacherOnDay(teacherName, day) {
+    let count = 0;
+    
+    for (let p = 1; p <= this.config['Periods per Day']; p++) {
+      if (p === this.config['Lunch Period']) continue;
+      
+      const period = `Period ${p}`;
+      
+      if (this.teacherPeriods[teacherName] && 
+          this.teacherPeriods[teacherName][day] && 
+          this.teacherPeriods[teacherName][day][period] && 
+          this.teacherPeriods[teacherName][day][period].filled) {
+        count++;
+      }
+    }
+    
+    return count;
+  }
+  
+  /**
+   * Add an entry to the timetable and update tracking structures
+   */
+  addTimetableEntry(teacherName, sectionCode, day, period, subject) {
+    // Create a new entry
+    const entry = {
+      sln: this.sln++,
+      teacherName: teacherName,
+      section: sectionCode,
+      day: day,
+      [period]: subject
+    };
+    
+    this.timetable.push(entry);
+    
+    // Update section and teacher tracking
+    this.sectionPeriods[sectionCode][day][period] = { 
+      filled: true, 
+      teacher: teacherName, 
+      subject: subject 
+    };
+    
+    this.teacherPeriods[teacherName][day][period] = { 
+      filled: true, 
+      section: sectionCode, 
+      subject: subject 
+    };
+  }
+  
+  /**
+   * Write timetable to the TIMETABLE sheet
+   */
+  writeTimetableToSheet() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('TIMETABLE');
+    
+    if (!sheet) {
+      throw new Error('TIMETABLE sheet not found');
+    }
+    
+    // Get header row
+    const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    
+    // Prepare data in the correct order
+    const data = this.timetable.map(entry => {
+      const row = [];
+      
+      for (const header of headerRow) {
+        row.push(entry[header] || '');
+      }
+      
+      return row;
+    });
+    
+    // Write data if any
+    if (data.length > 0) {
+      sheet.getRange(2, 1, data.length, headerRow.length).setValues(data);
+    }
+  }
+  
+  /**
+   * Write log entries to the LOG sheet
+   */
+  writeLogToSheet() {
+    if (this.logEntries.length === 0) return;
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('LOG');
+    
+    if (!sheet) {
+      throw new Error('LOG sheet not found');
+    }
+    
+    // Prepare data for the LOG sheet
+    const data = this.logEntries.map((entry, index) => [
+      index + 1, // SLN
+      entry.teacherName,
+      entry.section,
+      entry.day,
+      entry.period,
+      entry.reason
+    ]);
+    
+    // Write data
+    sheet.getRange(2, 1, data.length, 6).setValues(data);
+  }
+  
+  /**
+   * Utility to shuffle an array using Fisher-Yates algorithm
+   */
+  shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+}
+/**
+ * Updates MASTER TIMETABLE from TIMETABLE for substitution system
+ */
+function updateMasterTimetable() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const timetableSheet = ss.getSheetByName('TIMETABLE');
+  const masterSheet = ss.getSheetByName('MASTER TIMETABLE') || ss.insertSheet('MASTER TIMETABLE');
+  
+  if (!timetableSheet) {
+    throw new Error('TIMETABLE sheet not found');
+  }
+  
+  // Clear existing data in MASTER TIMETABLE
+  masterSheet.clear();
+  
+  // Copy all data from TIMETABLE to MASTER TIMETABLE
+  const timetableData = timetableSheet.getDataRange().getValues();
+  if (timetableData.length > 0) {
+    masterSheet.getRange(1, 1, timetableData.length, timetableData[0].length).setValues(timetableData);
+  }
+  
+  // Format the master sheet
+  masterSheet.getRange(1, 1, 1, timetableData[0].length).setFontWeight('bold');
+  masterSheet.setFrozenRows(1);
+  masterSheet.setFrozenColumns(4);
+}

@@ -1761,8 +1761,346 @@ export async function registerRoutes(
       }
   });
 
-  // --- SEED DATA ---
-  await seedDatabase();
+  // --- STUDENTS MANAGEMENT ---
+  app.get("/api/students", requireAuth, requireMinRole(USER_ROLES.TEACHER), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const students = await storage.getStudentsBySchool(req.user.schoolId);
+          res.json(students);
+      } catch (e: any) {
+          res.status(500).json({ message: e.message });
+      }
+  });
+
+  app.post("/api/students", requireAuth, requirePermission('MANAGE_STUDENTS'), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const student = await storage.createStudent({
+              ...req.body,
+              schoolId: req.user.schoolId
+          });
+          res.status(201).json(student);
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  app.patch("/api/students/:id", requireAuth, requirePermission('MANAGE_STUDENTS'), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          // Verify student belongs to school
+          const existing = await storage.getStudent(Number(req.params.id));
+          if (!existing || existing.schoolId !== req.user.schoolId) {
+              return res.status(404).json({ message: "Student not found" });
+          }
+          const student = await storage.updateStudent(Number(req.params.id), req.body);
+          res.json(student);
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  app.delete("/api/students/:id", requireAuth, requirePermission('MANAGE_STUDENTS'), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          // Verify student belongs to school
+          const existing = await storage.getStudent(Number(req.params.id));
+          if (!existing || existing.schoolId !== req.user.schoolId) {
+              return res.status(404).json({ message: "Student not found" });
+          }
+          await storage.deleteStudent(Number(req.params.id));
+          res.json({ success: true });
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  // --- STAFF MANAGEMENT ---
+  app.get("/api/staff", requireAuth, requireMinRole(USER_ROLES.WING_ADMIN), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const users = await storage.getUsersBySchool(req.user.schoolId);
+          // Filter out sensitive data
+          const staff = users.map(({ password, ...user }) => user);
+          res.json(staff);
+      } catch (e: any) {
+          res.status(500).json({ message: e.message });
+      }
+  });
+
+  app.post("/api/staff", requireAuth, requirePermission('MANAGE_USERS'), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const staff = await storage.createUser({
+              ...req.body,
+              schoolId: req.user.schoolId
+          });
+          const { password, ...safeStaff } = staff;
+          res.status(201).json(safeStaff);
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  app.patch("/api/staff/:id", requireAuth, requirePermission('MANAGE_USERS'), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          // Verify staff belongs to school
+          const existing = await storage.getUser(Number(req.params.id));
+          if (!existing || existing.schoolId !== req.user.schoolId) {
+              return res.status(404).json({ message: "Staff not found" });
+          }
+          const staff = await storage.updateUser(Number(req.params.id), req.body);
+          if (!staff) return res.status(404).json({ message: "Staff not found" });
+          const { password, ...safeStaff } = staff;
+          res.json(safeStaff);
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  app.delete("/api/staff/:id", requireAuth, requirePermission('MANAGE_USERS'), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          // Verify staff belongs to school
+          const existing = await storage.getUser(Number(req.params.id));
+          if (!existing || existing.schoolId !== req.user.schoolId) {
+              return res.status(404).json({ message: "Staff not found" });
+          }
+          await storage.deleteUser(Number(req.params.id));
+          res.json({ success: true });
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  // --- SCHOOL ONBOARDING (SUPER_ADMIN ONLY) ---
+  app.get("/api/admin/schools", requireAuth, requireRole(USER_ROLES.SUPER_ADMIN), async (req, res) => {
+      try {
+          const schools = await storage.getAllSchools();
+          res.json(schools);
+      } catch (e: any) {
+          res.status(500).json({ message: e.message });
+      }
+  });
+
+  app.post("/api/admin/schools", requireAuth, requireRole(USER_ROLES.SUPER_ADMIN), async (req, res) => {
+      try {
+          const { 
+              name, code, address,
+              principalName, principalUsername, principalPassword, principalEmail, principalPhone
+          } = req.body;
+          
+          // Validate required fields
+          if (!name || !code || !principalName || !principalUsername || !principalPassword) {
+              return res.status(400).json({ 
+                  message: "Missing required fields: name, code, principalName, principalUsername, principalPassword" 
+              });
+          }
+          
+          // Check if code already exists
+          const existingSchool = await storage.getSchoolByCode(code);
+          if (existingSchool) {
+              return res.status(400).json({ message: "School code already exists" });
+          }
+          
+          // Create school
+          const school = await storage.createSchool({
+              name,
+              code,
+              address: address || null,
+              tier: "STANDARD",
+              isActive: true
+          });
+          
+          // Create principal user
+          const principal = await storage.createUser({
+              schoolId: school.id,
+              username: principalUsername,
+              password: principalPassword,
+              fullName: principalName,
+              email: principalEmail || null,
+              phone: principalPhone || null,
+              role: USER_ROLES.PRINCIPAL,
+              isActive: true
+          });
+          
+          // Create default school config
+          await storage.createSchoolConfig({
+              schoolId: school.id,
+              periodsPerDay: 8,
+              periodDuration: 45,
+              lunchAfterPeriod: 4,
+              maxSubstitutionsPerDay: 3
+          });
+          
+          const { password, ...safePrincipal } = principal;
+          res.status(201).json({ 
+              school, 
+              principal: safePrincipal,
+              message: "School created successfully with principal account"
+          });
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  // --- TIMETABLE CRUD ---
+  app.post("/api/timetable", requireAuth, requirePermission('MANAGE_TIMETABLE'), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const entry = await storage.createTimetableEntry({
+              ...req.body,
+              schoolId: req.user.schoolId
+          });
+          res.status(201).json(entry);
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  app.delete("/api/timetable/:id", requireAuth, requirePermission('MANAGE_TIMETABLE'), async (req, res) => {
+      try {
+          await storage.deleteTimetableEntry(Number(req.params.id));
+          res.json({ success: true });
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  // --- CAMERA MANAGEMENT ---
+  app.get("/api/cameras", requireAuth, async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const cameras = await storage.getCameras(req.user.schoolId);
+          res.json(cameras);
+      } catch (e: any) {
+          res.status(500).json({ message: e.message });
+      }
+  });
+
+  app.post("/api/cameras", requireAuth, requirePermission('MANAGE_CAMERAS'), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const camera = await storage.createCamera({
+              ...req.body,
+              schoolId: req.user.schoolId
+          });
+          res.status(201).json(camera);
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  app.patch("/api/cameras/:id", requireAuth, requirePermission('MANAGE_CAMERAS'), async (req, res) => {
+      try {
+          const camera = await storage.updateCamera(Number(req.params.id), req.body);
+          if (!camera) return res.status(404).json({ message: "Camera not found" });
+          res.json(camera);
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  app.delete("/api/cameras/:id", requireAuth, requirePermission('MANAGE_CAMERAS'), async (req, res) => {
+      try {
+          await storage.deleteCamera(Number(req.params.id));
+          res.json({ success: true });
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  // --- TEACHER SUBJECT MAPPING ---
+  app.get("/api/teacher-subjects", requireAuth, async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const mappings = await storage.getTeacherSubjects(req.user.schoolId);
+          res.json(mappings);
+      } catch (e: any) {
+          res.status(500).json({ message: e.message });
+      }
+  });
+
+  app.post("/api/teacher-subjects", requireAuth, requirePermission('MANAGE_TIMETABLE'), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const mapping = await storage.createTeacherSubject({
+              ...req.body,
+              schoolId: req.user.schoolId
+          });
+          res.status(201).json(mapping);
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  app.delete("/api/teacher-subjects/:id", requireAuth, requirePermission('MANAGE_TIMETABLE'), async (req, res) => {
+      try {
+          await storage.deleteTeacherSubject(Number(req.params.id));
+          res.json({ success: true });
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  // --- SUBJECTS ---
+  app.get("/api/subjects", requireAuth, async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const subjects = await storage.getSubjects(req.user.schoolId);
+          res.json(subjects);
+      } catch (e: any) {
+          res.status(500).json({ message: e.message });
+      }
+  });
+
+  app.post("/api/subjects", requireAuth, requirePermission('MANAGE_TIMETABLE'), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const subject = await storage.createSubject({
+              ...req.body,
+              schoolId: req.user.schoolId
+          });
+          res.status(201).json(subject);
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  // --- SEED DATA (Production: Remove or disable) ---
+  // Uncomment below for initial setup, then comment out for production
+  // await seedDatabase();
 
   return httpServer;
 }

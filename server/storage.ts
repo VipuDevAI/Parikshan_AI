@@ -669,6 +669,64 @@ export class DatabaseStorage implements IStorage {
         return result;
     }
 
+    // === STUDENTS BY SCHOOL ===
+    async getStudentsBySchool(schoolId: number): Promise<Student[]> {
+        return db.select().from(students).where(eq(students.schoolId, schoolId));
+    }
+
+    async createStudent(data: Omit<Student, 'id'>): Promise<Student> {
+        const [student] = await db.insert(students).values(data).returning();
+        return student;
+    }
+
+    async updateStudent(id: number, updates: Partial<Omit<Student, 'id'>>): Promise<Student | undefined> {
+        const [updated] = await db.update(students).set(updates).where(eq(students.id, id)).returning();
+        return updated;
+    }
+
+    async deleteStudent(id: number): Promise<void> {
+        await db.delete(students).where(eq(students.id, id));
+    }
+
+    // === USER UPDATE/DELETE ===
+    async updateUser(id: number, updates: Partial<InsertUser>): Promise<User | undefined> {
+        // Hash password if provided
+        if (updates.password) {
+            updates.password = await bcrypt.hash(updates.password, SALT_ROUNDS);
+        }
+        const [updated] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+        return updated;
+    }
+
+    async deleteUser(id: number): Promise<void> {
+        await db.delete(users).where(eq(users.id, id));
+    }
+
+    // === SCHOOL MANAGEMENT ===
+    async getAllSchools(): Promise<School[]> {
+        return db.select().from(schools);
+    }
+
+    // === TIMETABLE DELETE ===
+    async deleteTimetableEntry(id: number): Promise<void> {
+        await db.delete(timetable).where(eq(timetable.id, id));
+    }
+
+    // === CAMERA UPDATE/DELETE ===
+    async updateCamera(id: number, updates: Partial<InsertCamera>): Promise<Camera | undefined> {
+        const [updated] = await db.update(cameras).set(updates).where(eq(cameras.id, id)).returning();
+        return updated;
+    }
+
+    async deleteCamera(id: number): Promise<void> {
+        await db.delete(cameras).where(eq(cameras.id, id));
+    }
+
+    // === TEACHER SUBJECT DELETE ===
+    async deleteTeacherSubject(id: number): Promise<void> {
+        await db.delete(teacherSubjects).where(eq(teacherSubjects.id, id));
+    }
+
     // Get timetable with joined data for exports
     async getTimetableWithDetails(schoolId: number, wingId?: number): Promise<any[]> {
         const timetableEntries = await this.getTimetable(schoolId);

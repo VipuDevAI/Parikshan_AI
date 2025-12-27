@@ -1,0 +1,299 @@
+You are an expert full-stack SaaS architect, system designer, and UI/UX specialist.
+
+ENTER FULL PROJECT GENERATION MODE.
+
+Build a COMPLETE, PRODUCTION-READY, scalable platform called **Parikshan.AI**.
+
+Parikshan.AI is a **multi-tenant, AI-powered Smart School Intelligence Platform** for Indian schools, tightly integrating:
+
+• AI camera intelligence  
+• Attendance (teacher + student)  
+• Timetable & intelligent substitution  
+• Role-based dashboards  
+• WhatsApp / Arattai / chat integrations  
+• Deep configuration control  
+
+This is NOT a demo. Build it as a real SaaS for 100+ schools.
+
+------------------------------------------------
+1. CORE ARCHITECTURE
+------------------------------------------------
+Use a **modular monorepo**:
+
+/backend   → Node.js + TypeScript + Express/NestJS  
+/frontend  → React + TypeScript + Tailwind  
+/ai-services → Python FastAPI (AI stubs)  
+/shared    → shared types & enums  
+
+Database: MongoDB  
+Auth: JWT + Refresh Tokens  
+Realtime: Socket.IO  
+
+Everything must be **multi-tenant** with `schoolId`.
+
+------------------------------------------------
+2. SCHOOL STRUCTURE (CRITICAL)
+------------------------------------------------
+Each school supports **WING-BASED SEPARATION**:
+
+Examples:
+• KG  
+• Primary  
+• Middle School  
+• Secondary  
+• Senior Secondary  
+
+Each wing has:
+• Its own classes
+• Teachers
+• Wing Admin (Head)
+
+------------------------------------------------
+3. ROLE HIERARCHY (STRICT)
+------------------------------------------------
+SUPER_ADMIN (Founder – SmartGenEduX)
+• Global control across all schools
+• Branding, integrations, configs
+
+CORRESPONDENT
+• School-wide visibility
+• Only critical alerts & analytics
+
+PRINCIPAL
+• FULL school control
+• All wings, all dashboards
+• Final authority for timetable & substitution
+
+SENIOR PRINCIPAL / VICE PRINCIPAL
+• Similar to principal but limited config
+
+SCHOOL ADMIN / WING HEAD
+• Control ONLY their wing
+• Timetable, substitution, configs for wing
+
+TEACHER
+• View timetable
+• Receive alerts
+• Receive substitution duties
+• No admin controls
+
+PARENT
+• Read-only
+• Child-specific alerts & attendance
+
+------------------------------------------------
+4. AUTH & LOGIN
+------------------------------------------------
+• School-specific login
+• Email + password
+• Forgot / reset password
+• Role-based redirects
+• Secure logout
+• Mobile-friendly login
+
+------------------------------------------------
+5. CAMERA & AI ENGINE
+------------------------------------------------
+Integrate cameras with AI services.
+
+AI detects:
+• Teacher attendance (entry camera)
+• Student attendance (class camera)
+• Teacher on-time class reach
+• Student on-time reach
+• Mood & engagement
+• Talking / inattentive students
+• Discipline issues
+• Uniform correctness
+• No-teacher classrooms
+• Empty classrooms
+• Notorious classrooms
+• Repeated patterns
+
+CRITICAL alerts go directly to:
+• Principal
+• Senior roles
+
+Inattentiveness alerts go ONLY to:
+• Concerned teacher
+• Principal
+
+------------------------------------------------
+6. ATTENDANCE SYSTEM
+------------------------------------------------
+Teacher Attendance:
+• Face recognition at signing camera
+• Timestamp IN
+• Late / on-time detection
+• Compare with first period
+
+Student Attendance:
+• Face recognition in class
+• Period-wise attendance
+• Late / early exit
+• Linked to timetable
+
+------------------------------------------------
+7. TIMETABLE SYSTEM (VERY STRICT)
+------------------------------------------------
+Timetable & Substitution are ONE engine.
+
+When entering timetable:
+Ask:
+• Wing-wise OR Whole-school
+
+Authority:
+• Whole school → Principal
+• Wing-wise → Wing Admin
+
+Mandatory inputs before generation:
+• Teacher ↔ Subject ↔ Class ↔ Section mapping
+• Class teachership (configurable by wing admin)
+• Periods per week (PPW)
+• Max periods per day (MPPD)
+• Lunch period
+• After-lunch light periods
+• Lab periods per week
+• II & III language rules
+• Senior secondary streams
+• Shared teachers across wings
+
+STRICTLY FOLLOW THIS GENERATION ORDER:
+1. Initialize trackers
+2. Assign class teacher periods first
+3. Assign II & III language (combined & split)
+4. Assign lab sessions (consecutive)
+5. Fill remaining PPW
+6. Fill FREE
+7. Maintain LOGS
+8. Freeze MASTER TIMETABLE
+
+------------------------------------------------
+8. SUBSTITUTION SYSTEM (STRICT)
+------------------------------------------------
+Substitution MUST read ONLY from MASTER TIMETABLE.
+
+Leave types:
+• Full day
+• Half day
+• Permission (period-wise)
+• On-duty
+• Incharge-assigned duty (1 or more periods)
+
+Leave submission:
+• Before 6:45 AM
+• Approved by Principal
+
+Duty assignment:
+• Assigned by Principal / Senior / Wing Admin
+• Period-level unavailability
+• Behaves like partial leave
+
+STRICT substitution logic:
+• Identify free teachers period-wise
+• Exclude:
+  – Overloaded (7+ periods)
+  – On leave
+  – Permanent exclusions
+• Max 3 substitutions per teacher per day
+• Scoring:
+  + Subject match
+  + Class match
+  + Lower workload
+  + Period gap
+• Avoid continuous periods
+• If none available → log
+
+Maintain:
+• Substitution log
+• Audit trail
+• Daily substitution report
+
+------------------------------------------------
+9. DASHBOARDS
+------------------------------------------------
+SUPER_ADMIN:
+• Platform analytics
+• All schools overview
+
+PRINCIPAL:
+• School health dashboard
+• Live alerts
+• Attendance overview
+• Engagement & discipline trends
+• Timetable & substitution control
+
+WING ADMIN:
+• Wing dashboard
+• Timetable & substitution for wing
+
+TEACHER:
+• Personal timetable
+• Today’s duties
+• Alerts
+
+PARENT:
+• Child attendance
+• Alerts only
+
+------------------------------------------------
+10. CONFIGURATION PAGES (VERY IMPORTANT)
+------------------------------------------------
+Dedicated CONFIG module:
+
+School-level config:
+• Wings
+• Period structure
+• Lunch
+• Substitution caps
+
+AI config:
+• Enable / disable detections
+• Alert thresholds
+
+Integration config:
+• WhatsApp / Arattai webhook
+• API keys
+• Test integration
+
+Role config:
+• Who can assign duties
+• Alert routing rules
+
+------------------------------------------------
+11. CHAT INTEGRATION
+------------------------------------------------
+Integrate via webhooks:
+• WhatsApp
+• Arattai
+• (future Connecto)
+
+CRITICAL alerts auto-sent.
+Substitution notifications sent to teachers.
+
+------------------------------------------------
+12. UI / UX
+------------------------------------------------
+• Modern premium SaaS design
+• Tailwind dashboard
+• Responsive (mobile & tablet)
+• Smooth transitions
+• Clean charts & tables
+
+------------------------------------------------
+13. BRANDING
+------------------------------------------------
+Create a **stylish Parikshan.AI logo**
+Use everywhere.
+
+------------------------------------------------
+14. RULES
+------------------------------------------------
+• Do NOT ask follow-up questions
+• Do NOT simplify logic
+• Implement ALL modules
+• Assume requirements are final
+• Build production-ready code
+
+------------------------------------------------
+START NOW.
