@@ -93,7 +93,8 @@ export default function StudentsPage() {
 
   const createStudent = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("/api/students", "POST", data);
+      const res = await apiRequest("POST", "/api/students", data);
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/students"] });
@@ -117,7 +118,7 @@ export default function StudentsPage() {
 
   const deleteStudent = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/students/${id}`, "DELETE");
+      return apiRequest("DELETE", `/api/students/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/students"] });
@@ -130,7 +131,7 @@ export default function StudentsPage() {
 
   const updateStudent = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      return apiRequest(`/api/students/${id}`, "PATCH", data);
+      return apiRequest("PATCH", `/api/students/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/students"] });

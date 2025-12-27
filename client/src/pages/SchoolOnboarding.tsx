@@ -84,7 +84,8 @@ export default function SchoolOnboardingPage() {
 
   const createSchool = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("/api/admin/schools", "POST", data);
+      const res = await apiRequest("POST", "/api/admin/schools", data);
+      return res.json();
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/schools"] });

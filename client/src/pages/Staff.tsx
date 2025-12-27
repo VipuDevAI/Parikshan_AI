@@ -97,7 +97,8 @@ export default function StaffPage() {
 
   const createStaff = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("/api/staff", "POST", data);
+      const res = await apiRequest("POST", "/api/staff", data);
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
@@ -121,7 +122,7 @@ export default function StaffPage() {
 
   const deleteStaff = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/staff/${id}`, "DELETE");
+      return apiRequest("DELETE", `/api/staff/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
@@ -134,7 +135,7 @@ export default function StaffPage() {
 
   const updateStaff = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      return apiRequest(`/api/staff/${id}`, "PATCH", data);
+      return apiRequest("PATCH", `/api/staff/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff"] });

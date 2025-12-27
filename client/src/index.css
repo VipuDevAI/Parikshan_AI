@@ -9,14 +9,14 @@
   --font-sans: 'Inter', sans-serif;
   --font-display: 'Outfit', sans-serif;
 
-  /* Light Mode - Soft Green Tinted Backgrounds */
-  --background: 145 20% 96%;
+  /* Light Mode - Elegant Soft Green Gradient Backgrounds */
+  --background: 145 25% 94%;
   --foreground: 150 10% 15%;
 
-  --card: 145 15% 98%;
+  --card: 145 18% 97%;
   --card-foreground: 150 10% 15%;
 
-  --popover: 145 15% 98%;
+  --popover: 145 18% 97%;
   --popover-foreground: 150 10% 15%;
 
   /* Primary - Forest Green */
@@ -100,6 +100,17 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+    background-image: 
+      radial-gradient(circle at 100% 0%, hsla(145, 40%, 85%, 0.3) 0%, transparent 25%),
+      radial-gradient(circle at 0% 100%, hsla(145, 35%, 88%, 0.25) 0%, transparent 30%),
+      radial-gradient(circle at 50% 50%, hsla(145, 30%, 92%, 0.15) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+  .dark body {
+    background-image: 
+      radial-gradient(circle at 100% 0%, hsla(145, 50%, 15%, 0.4) 0%, transparent 25%),
+      radial-gradient(circle at 0% 100%, hsla(145, 40%, 12%, 0.35) 0%, transparent 30%),
+      radial-gradient(circle at 50% 50%, hsla(145, 35%, 10%, 0.2) 0%, transparent 50%);
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
