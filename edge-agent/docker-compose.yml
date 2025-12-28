@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  edge-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: parikshan-edge-agent
+    restart: unless-stopped
+    
+    environment:
+      - PARIKSHAN_API_URL=https://parikshan.ai
+      - AGENT_ID=${AGENT_ID}
+      - AGENT_SECRET=${AGENT_SECRET}
+      - SCHOOL_CODE=${SCHOOL_CODE}
+      - LOG_LEVEL=INFO
+      - CONFIG_PATH=/app/config/agent.yaml
+    
+    volumes:
+      - ./config:/app/config:ro
+      - edge-data:/app/data
+      - edge-logs:/app/logs
+    
+    ports:
+      - "8080:8080"
+    
+    networks:
+      - parikshan-network
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  edge-data:
+    driver: local
+  edge-logs:
+    driver: local
+
+networks:
+  parikshan-network:
+    driver: bridge
