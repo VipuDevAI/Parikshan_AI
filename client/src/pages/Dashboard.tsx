@@ -107,7 +107,7 @@ function AdminDashboard({ user }: { user: any }) {
           value={stats?.totalStudents || 0} 
           icon={GraduationCap} 
           trend="+12%"
-          color="blue"
+          color="emerald"
           testId="stat-students"
         />
         <StatCard 
@@ -115,7 +115,7 @@ function AdminDashboard({ user }: { user: any }) {
           value={stats?.totalTeachers || 0} 
           icon={Users} 
           trend="Stable"
-          color="indigo"
+          color="teal"
           testId="stat-staff"
         />
         <StatCard 
@@ -123,7 +123,7 @@ function AdminDashboard({ user }: { user: any }) {
           value={stats?.presentToday || 0} 
           icon={UserCheck} 
           trend="92% Rate"
-          color="green"
+          color="blue"
           testId="stat-present"
         />
         <StatCard 
@@ -131,7 +131,7 @@ function AdminDashboard({ user }: { user: any }) {
           value={stats?.alertsToday || 0} 
           icon={AlertTriangle} 
           trend={`Critical: ${alerts?.filter(a => a.severity === 'CRITICAL').length || 0}`}
-          color="red"
+          color="orange"
           isDestructive
           testId="stat-alerts"
         />
@@ -298,21 +298,21 @@ function WingAdminDashboard({ user }: { user: any }) {
           title="Wing Students" 
           value={stats?.totalStudents || 0} 
           icon={GraduationCap} 
-          color="blue"
+          color="emerald"
           testId="stat-wing-students"
         />
         <StatCard 
           title="Wing Teachers" 
           value={stats?.totalTeachers || 0} 
           icon={Users} 
-          color="indigo"
+          color="purple"
           testId="stat-wing-teachers"
         />
         <StatCard 
           title="Today's Subs" 
           value={todaySubs.length} 
           icon={ClipboardList} 
-          color="green"
+          color="amber"
           testId="stat-subs"
         />
         <StatCard 
@@ -408,7 +408,7 @@ function TeacherDashboard({ user }: { user: any }) {
           title="Today's Classes" 
           value={todaySchedule.length} 
           icon={BookOpen} 
-          color="blue"
+          color="emerald"
           testId="stat-classes"
         />
         <StatCard 
@@ -429,7 +429,7 @@ function TeacherDashboard({ user }: { user: any }) {
           title="Pending Leaves" 
           value={myLeaves.filter((l: any) => l.status === 'PENDING').length} 
           icon={Clock} 
-          color="yellow"
+          color="amber"
           testId="stat-pending-leaves"
         />
       </div>
@@ -595,22 +595,69 @@ function ParentDashboard({ user }: { user: any }) {
 }
 
 function StatCard({ title, value, icon: Icon, trend, color, isDestructive, testId }: any) {
-  const colorStyles: Record<string, string> = {
-    blue: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
-    indigo: "bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400",
-    green: "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400",
-    red: "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400",
-    yellow: "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+  const colorStyles: Record<string, { icon: string; border: string; trend: string }> = {
+    emerald: {
+      icon: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400",
+      border: "border-l-4 border-l-emerald-500",
+      trend: "text-emerald-600 dark:text-emerald-400"
+    },
+    teal: {
+      icon: "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400",
+      border: "border-l-4 border-l-teal-500",
+      trend: "text-teal-600 dark:text-teal-400"
+    },
+    green: {
+      icon: "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400",
+      border: "border-l-4 border-l-green-500",
+      trend: "text-green-600 dark:text-green-400"
+    },
+    blue: {
+      icon: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400",
+      border: "border-l-4 border-l-blue-500",
+      trend: "text-blue-600 dark:text-blue-400"
+    },
+    indigo: {
+      icon: "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400",
+      border: "border-l-4 border-l-indigo-500",
+      trend: "text-indigo-600 dark:text-indigo-400"
+    },
+    purple: {
+      icon: "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400",
+      border: "border-l-4 border-l-purple-500",
+      trend: "text-purple-600 dark:text-purple-400"
+    },
+    amber: {
+      icon: "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400",
+      border: "border-l-4 border-l-amber-500",
+      trend: "text-amber-600 dark:text-amber-400"
+    },
+    yellow: {
+      icon: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/40 dark:text-yellow-400",
+      border: "border-l-4 border-l-yellow-500",
+      trend: "text-yellow-600 dark:text-yellow-400"
+    },
+    red: {
+      icon: "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400",
+      border: "border-l-4 border-l-red-500",
+      trend: "text-red-600 dark:text-red-400"
+    },
+    orange: {
+      icon: "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400",
+      border: "border-l-4 border-l-orange-500",
+      trend: "text-orange-600 dark:text-orange-400"
+    },
   };
 
+  const style = colorStyles[color] || colorStyles.emerald;
+
   return (
-    <div className="stat-card p-4 lg:p-5 rounded-xl" data-testid={testId}>
+    <div className={`bg-card p-4 lg:p-5 rounded-xl shadow-sm ${style.border}`} data-testid={testId}>
       <div className="flex items-start justify-between gap-2">
-        <div className={`p-2 lg:p-3 rounded-xl ${colorStyles[color] || colorStyles.blue}`}>
+        <div className={`p-2 lg:p-3 rounded-xl ${style.icon}`}>
           <Icon className="w-5 h-5 lg:w-6 lg:h-6" />
         </div>
         {trend && (
-          <div className={`hidden sm:flex items-center text-xs font-bold px-2 py-1 rounded-full ${isDestructive ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+          <div className={`hidden sm:flex items-center text-xs font-bold px-2 py-1 rounded-full ${style.icon}`}>
             {trend}
             {!isDestructive && <ArrowUpRight className="w-3 h-3 ml-1" />}
           </div>
