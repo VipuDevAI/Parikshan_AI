@@ -99,16 +99,16 @@ export async function registerRoutes(
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        // Create session and set cookie
+        // Create session and set cookie (stored in PostgreSQL for persistence)
         const { createSession } = await import("./middleware/session");
-        const token = createSession(user.id, user.schoolId);
+        const token = await createSession(user.id, user.schoolId);
         
         // Set HTTP-only cookie for session
         res.cookie("session_token", token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
         // Don't send password back to client
@@ -132,15 +132,15 @@ export async function registerRoutes(
     res.json(safeUser);
   });
 
-  app.post(api.auth.logout.path, (req, res) => {
+  app.post(api.auth.logout.path, async (req, res) => {
       // Clear session cookie
       res.clearCookie("session_token");
       
       // Clear server-side session if token exists
       const token = req.cookies?.session_token;
       if (token) {
-          const { clearSession } = require("./middleware/session");
-          clearSession(token);
+          const { clearSession } = await import("./middleware/session");
+          await clearSession(token);
       }
       
       res.json({ message: "Logged out" });
