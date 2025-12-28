@@ -1,0 +1,482 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Parikshan.AI - Smart Emerald Design System */
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+
+  /* Light Mode - Clean Enterprise */
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  /* Primary - Smart Emerald #166534 */
+  --primary: 142 64% 24%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Accent - Bright Green #22C55E */
+  --accent-green: 142 71% 45%;
+
+  --secondary: 210 20% 96%;
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 210 20% 96%;
+  --muted-foreground: 215 16% 47%;
+
+  --accent: 142 20% 94%;
+  --accent-foreground: 142 64% 24%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+
+  --info: 217 91% 60%;
+  --info-foreground: 0 0% 100%;
+
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 142 64% 24%;
+  --radius: 0.5rem;
+
+  /* Sidebar - Deep Emerald Gradient */
+  --sidebar-background: 222 47% 11%;
+  --sidebar-foreground: 210 20% 98%;
+  --sidebar-accent: 142 64% 24%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 217 33% 17%;
+  --sidebar-muted: 215 16% 57%;
+
+  /* Glass Effect */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+  /* Glow Effects */
+  --glow-primary: 0 0 20px rgba(22, 101, 52, 0.15);
+  --glow-accent: 0 0 20px rgba(34, 197, 94, 0.2);
+}
+
+.dark {
+  /* Dark Mode - Deep Enterprise */
+  --background: 222 47% 6%;
+  --foreground: 210 20% 98%;
+
+  --card: 222 47% 9%;
+  --card-foreground: 210 20% 98%;
+
+  --popover: 222 47% 9%;
+  --popover-foreground: 210 20% 98%;
+
+  --primary: 142 71% 45%;
+  --primary-foreground: 222 47% 6%;
+
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 20% 98%;
+
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+
+  --accent: 142 30% 18%;
+  --accent-foreground: 142 71% 45%;
+
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 142 71% 45%;
+
+  /* Sidebar - Dark Mode */
+  --sidebar-background: 222 47% 4%;
+  --sidebar-foreground: 210 20% 98%;
+  --sidebar-accent: 142 64% 24%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 217 33% 12%;
+  --sidebar-muted: 215 16% 50%;
+
+  /* Glass Effect - Dark */
+  --glass-bg: rgba(0, 0, 0, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* Glow Effects - Dark */
+  --glow-primary: 0 0 30px rgba(34, 197, 94, 0.2);
+  --glow-accent: 0 0 40px rgba(34, 197, 94, 0.3);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    @apply tracking-tight;
+  }
+}
+
+@layer utilities {
+  .hover-elevate {
+    @apply transition-all duration-200;
+  }
+  .hover-elevate:hover {
+    @apply bg-black/5;
+  }
+  .dark .hover-elevate:hover {
+    @apply bg-white/10;
+  }
+
+  .active-elevate-2 {
+    @apply transition-all duration-100;
+  }
+  .active-elevate-2:active {
+    @apply bg-black/10;
+  }
+  .dark .active-elevate-2:active {
+    @apply bg-white/15;
+  }
+
+  .toggle-elevate {
+    @apply transition-all duration-200;
+  }
+  .toggle-elevated {
+    @apply bg-primary/10;
+  }
+
+  .no-default-hover-elevate:hover {
+    @apply bg-transparent;
+  }
+  .no-default-active-elevate:active {
+    @apply bg-transparent;
+  }
+}
+
+/* ============================================
+   SMART EMERALD DESIGN SYSTEM - Components
+   ============================================ */
+
+/* Dashboard Gradient Background */
+.dashboard-gradient {
+  background: linear-gradient(135deg, #0F172A 0%, #022C22 45%, #166534 100%);
+}
+.dashboard-gradient-light {
+  background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 50%, #BBF7D0 100%);
+}
+
+/* Glass Effect Cards */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-card-strong {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+.dark .glass-card-strong {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Gradient Primary Button */
+.gradient-primary {
+  background: linear-gradient(135deg, #166534 0%, #14532D 100%);
+  @apply text-white;
+}
+.gradient-primary:hover {
+  background: linear-gradient(135deg, #15803D 0%, #166534 100%);
+}
+
+/* Gradient Accent Button */
+.gradient-accent {
+  background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+  @apply text-white;
+}
+.gradient-accent:hover {
+  background: linear-gradient(135deg, #4ADE80 0%, #22C55E 100%);
+}
+
+/* Glow Effects */
+.glow-primary {
+  box-shadow: var(--glow-primary);
+}
+.glow-accent {
+  box-shadow: var(--glow-accent);
+}
+.glow-card {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 0 40px rgba(34, 197, 94, 0.08);
+}
+.dark .glow-card {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 60px rgba(34, 197, 94, 0.12);
+}
+
+/* Stat Card with Soft Glow */
+.stat-card {
+  @apply relative overflow-hidden rounded-xl;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s ease;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, transparent 50%, rgba(34, 197, 94, 0.1) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 0 40px rgba(34, 197, 94, 0.1);
+}
+.dark .stat-card:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 60px rgba(34, 197, 94, 0.15);
+}
+
+/* AI Theme - Circuit Corners (Subtle) */
+.circuit-corner {
+  position: relative;
+}
+.circuit-corner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40px;
+  height: 40px;
+  border-left: 2px solid rgba(34, 197, 94, 0.3);
+  border-top: 2px solid rgba(34, 197, 94, 0.3);
+  border-top-left-radius: 8px;
+  pointer-events: none;
+}
+.circuit-corner::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  border-right: 2px solid rgba(34, 197, 94, 0.3);
+  border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+  border-bottom-right-radius: 8px;
+  pointer-events: none;
+}
+
+/* AI Background Animation */
+.ai-background {
+  background: linear-gradient(135deg, #0F172A 0%, #022C22 45%, #166534 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-background::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(34, 197, 94, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(34, 197, 94, 0.12) 0%, transparent 35%),
+    radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.08) 0%, transparent 50%);
+  animation: pulse-glow 8s ease-in-out infinite;
+}
+
+.ai-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(0deg, transparent 24%, rgba(34, 197, 94, 0.03) 25%, rgba(34, 197, 94, 0.03) 26%, transparent 27%, transparent 74%, rgba(34, 197, 94, 0.03) 75%, rgba(34, 197, 94, 0.03) 76%, transparent 77%),
+    linear-gradient(90deg, transparent 24%, rgba(34, 197, 94, 0.03) 25%, rgba(34, 197, 94, 0.03) 26%, transparent 27%, transparent 74%, rgba(34, 197, 94, 0.03) 75%, rgba(34, 197, 94, 0.03) 76%, transparent 77%);
+  background-size: 60px 60px;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Floating particles */
+.ai-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ai-particles::before,
+.ai-particles::after {
+  content: '';
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.1) 0%, transparent 70%);
+  animation: float 15s ease-in-out infinite;
+}
+
+.ai-particles::before {
+  top: 10%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.ai-particles::after {
+  bottom: 10%;
+  right: 10%;
+  animation-delay: -7s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(30px, -30px) scale(1.1); }
+  50% { transform: translate(60px, 20px) scale(0.9); }
+  75% { transform: translate(20px, 40px) scale(1.05); }
+}
+
+/* Neon Edge Glow (Subtle AI Touch) */
+.neon-edge {
+  position: relative;
+}
+.neon-edge::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.4) 0%, transparent 30%, transparent 70%, rgba(34, 197, 94, 0.3) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.neon-edge:hover::before {
+  opacity: 1;
+}
+
+/* Ripple Effect for Buttons */
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+.ripple::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.3) 0%, transparent 60%);
+  transform: scale(0);
+  opacity: 0;
+  transition: transform 0.5s ease, opacity 0.3s ease;
+}
+.ripple:active::after {
+  transform: scale(2);
+  opacity: 1;
+  transition: transform 0s, opacity 0s;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-muted/50;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-primary/30 rounded-full;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary/50;
+}
+
+/* Section Headers with Icons */
+.section-header {
+  @apply flex items-center gap-3 mb-6;
+}
+.section-header-icon {
+  @apply w-10 h-10 rounded-xl flex items-center justify-center;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 101, 52, 0.15) 100%);
+}
+.section-header-icon svg {
+  @apply w-5 h-5 text-primary;
+}
+
+/* Button Variants */
+.btn-primary {
+  @apply bg-primary text-primary-foreground rounded-lg px-4 py-2 font-medium;
+  @apply transition-all duration-200;
+}
+.btn-primary:hover {
+  @apply opacity-90;
+}
+
+.btn-secondary {
+  @apply border-2 border-primary text-primary rounded-lg px-4 py-2 font-medium;
+  @apply transition-all duration-200 bg-transparent;
+}
+.btn-secondary:hover {
+  @apply bg-primary/10;
+}
+
+.btn-danger {
+  @apply bg-destructive text-destructive-foreground rounded-lg px-4 py-2 font-medium;
+  @apply transition-all duration-200;
+}
+.btn-danger:hover {
+  @apply opacity-90;
+}
+
+.btn-info {
+  background: hsl(217, 91%, 60%);
+  @apply text-white rounded-lg px-4 py-2 font-medium;
+  @apply transition-all duration-200;
+}
+.btn-info:hover {
+  @apply opacity-90;
+}
+
+.btn-muted {
+  @apply bg-muted text-muted-foreground rounded-lg px-4 py-2 font-medium;
+  @apply transition-all duration-200;
+}
+.btn-muted:hover {
+  @apply bg-muted/80;
+}
+
+/* Chart Theme Colors */
+.chart-primary { fill: #166534; stroke: #166534; }
+.chart-accent { fill: #22C55E; stroke: #22C55E; }
+.chart-secondary { fill: #6B7280; stroke: #6B7280; }
+.chart-warning { fill: #F59E0B; stroke: #F59E0B; }
+.chart-danger { fill: #EF4444; stroke: #EF4444; }
+.chart-info { fill: #3B82F6; stroke: #3B82F6; }
