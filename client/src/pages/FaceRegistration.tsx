@@ -14,9 +14,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { 
     Loader2, Camera, Upload, Users, Search, Trash2, 
-    UserCheck, AlertCircle, CheckCircle, Image, FolderUp, GraduationCap, Briefcase, X
+    UserCheck, AlertCircle, CheckCircle, Image, FolderUp, GraduationCap, Briefcase, X, Eye
 } from "lucide-react";
+import { ActionTile, ActionTileGroup } from "@/components/ui/action-tile";
 import type { Wing, Class, Section, Student, FaceEncoding } from "@shared/schema";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Person search result types
 type StudentResult = {
@@ -55,6 +67,9 @@ export default function FaceRegistrationPage() {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [isDeletingAll, setIsDeletingAll] = useState(false);
+    const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState("individual");
     
     // Quick search state
     const [quickSearchTerm, setQuickSearchTerm] = useState("");
@@ -279,25 +294,94 @@ export default function FaceRegistrationPage() {
         const classItem = section ? classes?.find(c => c.id === section.classId) : null;
         return `${classItem?.name || 'Unknown'} - ${section?.name || 'Unknown'}`;
     };
+
+    const handleDeleteAllFaces = async () => {
+        setIsDeletingAll(true);
+        try {
+            for (const e of faceEncodings || []) {
+                await deleteEncodingMutation.mutateAsync(e.id);
+            }
+            toast({ title: "All faces deleted" });
+        } catch (error: any) {
+            toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+        } finally {
+            setIsDeletingAll(false);
+        }
+    };
     
     return (
         <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6" data-testid="page-face-registration">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold" data-testid="text-page-title">Face Registration</h1>
-                    <p className="text-muted-foreground">Register and manage student faces for AI attendance</p>
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold" data-testid="text-page-title">Face Registration</h1>
+                        <p className="text-muted-foreground">Register and manage student faces for AI attendance</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary" className="gap-1">
+                            <UserCheck className="w-3 h-3" />
+                            <span data-testid="text-registered-count">{registeredCount} Registered</span>
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                            <Users className="w-3 h-3" />
+                            <span data-testid="text-total-students">{totalStudents} Total Students</span>
+                        </Badge>
+                    </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary" className="gap-1">
-                        <UserCheck className="w-3 h-3" />
-                        <span data-testid="text-registered-count">{registeredCount} Registered</span>
-                    </Badge>
-                    <Badge variant="outline" className="gap-1">
-                        <Users className="w-3 h-3" />
-                        <span data-testid="text-total-students">{totalStudents} Total Students</span>
-                    </Badge>
-                </div>
+                
+                <Card className="p-4">
+                    <ActionTileGroup>
+                        <ActionTile
+                            icon={Camera}
+                            label="Individual Registration"
+                            variant="primary"
+                            size="lg"
+                            onClick={() => setActiveTab("individual")}
+                            data-testid="tile-individual"
+                        />
+                        <ActionTile
+                            icon={FolderUp}
+                            label="Bulk Upload"
+                            variant="success"
+                            size="lg"
+                            onClick={() => setActiveTab("bulk")}
+                            data-testid="tile-bulk"
+                        />
+                        <ActionTile
+                            icon={Eye}
+                            label="View Registrations"
+                            variant="info"
+                            size="lg"
+                            onClick={() => setActiveTab("manage")}
+                            data-testid="tile-manage"
+                        />
+                        <ActionTile
+                            icon={isDeletingAll ? Loader2 : Trash2}
+                            label="Delete All Faces"
+                            variant="danger"
+                            size="lg"
+                            disabled={!registeredCount || isDeletingAll}
+                            onClick={() => setDeleteAllDialogOpen(true)}
+                            data-testid="tile-delete-all-faces"
+                        />
+                    </ActionTileGroup>
+                </Card>
             </div>
+
+            <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete All Face Registrations?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete {registeredCount} face registration(s). This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => { handleDeleteAllFaces(); setDeleteAllDialogOpen(false); }}>Delete All</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
             
             <Card className="glass-card glow-card">
                 <CardHeader className="pb-3">
@@ -315,20 +399,11 @@ export default function FaceRegistrationPage() {
                 </CardContent>
             </Card>
             
-            <Tabs defaultValue="individual" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="individual" data-testid="tab-individual">
-                        <Camera className="w-4 h-4 mr-2" />
-                        Individual Registration
-                    </TabsTrigger>
-                    <TabsTrigger value="bulk" data-testid="tab-bulk">
-                        <FolderUp className="w-4 h-4 mr-2" />
-                        Bulk Upload
-                    </TabsTrigger>
-                    <TabsTrigger value="manage" data-testid="tab-manage">
-                        <Users className="w-4 h-4 mr-2" />
-                        Manage Registrations
-                    </TabsTrigger>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <TabsList className="hidden">
+                    <TabsTrigger value="individual" />
+                    <TabsTrigger value="bulk" />
+                    <TabsTrigger value="manage" />
                 </TabsList>
                 
                 <TabsContent value="individual" className="space-y-4">

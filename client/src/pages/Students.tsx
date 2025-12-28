@@ -41,8 +41,10 @@ import {
   Download,
   Trash2,
   Pencil,
-  FileSpreadsheet
+  FileSpreadsheet,
+  UserPlus
 } from "lucide-react";
+import { ActionTile, ActionTileGroup } from "@/components/ui/action-tile";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -67,6 +69,8 @@ export default function StudentsPage() {
   const [csvData, setCsvData] = useState<any[]>([]);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [editingStudent, setEditingStudent] = useState<any>(null);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [newStudent, setNewStudent] = useState({
     fullName: "",
     admissionNumber: "",
@@ -81,11 +85,25 @@ export default function StudentsPage() {
   const { data: students = [], isLoading } = useQuery({
     queryKey: ["/api/students"],
     queryFn: async () => {
-      const res = await fetch("/api/students");
+      const res = await fetch("/api/students", { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
   });
+
+  const handleDeleteAllStudents = async () => {
+    setIsDeletingAll(true);
+    try {
+      for (const s of students) {
+        await deleteStudent.mutateAsync(s.id);
+      }
+      toast({ title: "All students deleted" });
+    } catch (error: any) {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
 
   const { data: classes = [] } = useQuery<any[]>({
     queryKey: ["/api/classes"],
@@ -220,7 +238,7 @@ export default function StudentsPage() {
 
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground" data-testid="text-title">
             Students
@@ -229,20 +247,62 @@ export default function StudentsPage() {
             Manage student records and information
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button 
-            variant="outline" 
-            onClick={() => window.open('/api/students/template', '_blank')}
-            data-testid="button-download-template"
-          >
-            <Download className="w-4 h-4 mr-2" /> Template
-          </Button>
-          <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" data-testid="button-bulk-upload">
-                <Upload className="w-4 h-4 mr-2" /> Bulk Upload
-              </Button>
-            </DialogTrigger>
+        
+        <Card className="p-4">
+          <ActionTileGroup>
+            <ActionTile
+              icon={UserPlus}
+              label="Add Student"
+              variant="primary"
+              size="lg"
+              onClick={() => setIsAddOpen(true)}
+              data-testid="tile-add-student"
+            />
+            <ActionTile
+              icon={Upload}
+              label="Bulk Upload"
+              variant="success"
+              size="lg"
+              onClick={() => setIsBulkOpen(true)}
+              data-testid="tile-bulk-upload"
+            />
+            <ActionTile
+              icon={Download}
+              label="Download Template"
+              variant="info"
+              size="lg"
+              onClick={() => window.open('/api/students/template', '_blank')}
+              data-testid="tile-download-template"
+            />
+            <ActionTile
+              icon={isDeletingAll ? Loader2 : Trash2}
+              label="Delete All Students"
+              variant="danger"
+              size="lg"
+              disabled={!students.length || isDeletingAll}
+              onClick={() => setDeleteAllDialogOpen(true)}
+              data-testid="tile-delete-all-students"
+            />
+          </ActionTileGroup>
+        </Card>
+      </div>
+
+      <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Students?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {students.length} student(s). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { handleDeleteAllStudents(); setDeleteAllDialogOpen(false); }}>Delete All</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Bulk Upload Students</DialogTitle>
@@ -307,12 +367,8 @@ export default function StudentsPage() {
               </div>
             </DialogContent>
           </Dialog>
+
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-student">
-                <Plus className="w-4 h-4 mr-2" /> Add Student
-              </Button>
-            </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Add New Student</DialogTitle>
@@ -435,8 +491,6 @@ export default function StudentsPage() {
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
 
       <Card className="glass-card p-4">
         <div className="flex flex-col sm:flex-row gap-4 mb-4">

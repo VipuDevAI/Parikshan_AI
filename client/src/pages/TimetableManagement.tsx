@@ -3,17 +3,16 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { ActionTile, ActionTileGroup } from "@/components/ui/action-tile";
 import { 
     Upload, Download, FileSpreadsheet, Users, BookOpen, Calendar, 
-    Building2, Loader2, Check, AlertCircle, RefreshCw
+    Building2, Loader2, Trash2, Eye, RefreshCw, FileText, GraduationCap
 } from "lucide-react";
 import type { Wing, Class, Section, Subject } from "@shared/schema";
 
@@ -26,12 +25,13 @@ export default function TimetableManagementPage() {
     const [uploadType, setUploadType] = useState<"subjects" | "teachers" | "classes">("subjects");
     const [csvData, setCsvData] = useState<string>("");
     const [uploading, setUploading] = useState(false);
+    const [showUploadForm, setShowUploadForm] = useState(false);
     
-    const { data: wings, isLoading: wingsLoading } = useQuery<Wing[]>({
+    const { data: wings } = useQuery<Wing[]>({
         queryKey: ['/api/wings'],
     });
     
-    const { data: classes, isLoading: classesLoading } = useQuery<(Class & { sections: Section[] })[]>({
+    const { data: classes, refetch: refetchClasses } = useQuery<(Class & { sections: Section[] })[]>({
         queryKey: ['/api/classes'],
         queryFn: async () => {
             const classesRes = await fetch('/api/classes', { credentials: 'include' });
@@ -49,8 +49,30 @@ export default function TimetableManagementPage() {
         }
     });
     
-    const { data: subjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
+    const { data: subjects, refetch: refetchSubjects } = useQuery<Subject[]>({
         queryKey: ['/api/subjects'],
+    });
+
+    const { data: teacherSubjects, refetch: refetchTeacherSubjects } = useQuery<any[]>({
+        queryKey: ['/api/teacher-subjects'],
+    });
+
+    const deleteSubjectMutation = useMutation({
+        mutationFn: async (id: number) => apiRequest('DELETE', `/api/subjects/${id}`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['/api/subjects'] });
+            toast({ title: "Subject deleted" });
+        },
+        onError: (e: any) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),
+    });
+
+    const deleteClassMutation = useMutation({
+        mutationFn: async (id: number) => apiRequest('DELETE', `/api/classes/${id}`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['/api/classes'] });
+            toast({ title: "Class deleted" });
+        },
+        onError: (e: any) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),
     });
 
     const parseCSV = (text: string): any[] => {
@@ -106,6 +128,7 @@ export default function TimetableManagementPage() {
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({
                     schoolId,
                     wingId: selectedWing ? parseInt(selectedWing) : null,
@@ -125,9 +148,10 @@ export default function TimetableManagementPage() {
             });
             
             setCsvData("");
+            setShowUploadForm(false);
             queryClient.invalidateQueries({ queryKey: ['/api/subjects'] });
             queryClient.invalidateQueries({ queryKey: ['/api/teacher-subjects'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/academic/classes'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/classes'] });
         } catch (error: any) {
             toast({
                 title: "Upload failed",
@@ -139,14 +163,28 @@ export default function TimetableManagementPage() {
         }
     };
 
-    const handleDownloadMaster = async () => {
+    const handleDeleteAllSubjects = async () => {
+        if (!confirm("Delete ALL subjects? This cannot be undone.")) return;
+        for (const s of subjects || []) {
+            await deleteSubjectMutation.mutateAsync(s.id);
+        }
+    };
+
+    const handleDeleteAllClasses = async () => {
+        if (!confirm("Delete ALL classes? This cannot be undone.")) return;
+        for (const c of classes || []) {
+            await deleteClassMutation.mutateAsync(c.id);
+        }
+    };
+
+    const handleDownloadMaster = () => {
         const wingParam = selectedWing ? `?wingId=${selectedWing}` : "";
         window.open(`/api/timetable/download/master/${schoolId}${wingParam}`, '_blank');
     };
 
     const handleDownloadTeachers = async () => {
         try {
-            const response = await fetch(`/api/timetable/download/teachers/${schoolId}`);
+            const response = await fetch(`/api/timetable/download/teachers/${schoolId}`, { credentials: "include" });
             const data = await response.json();
             
             let csv = "Teacher Name,Day,Period 1,Period 2,Period 3,Period 4,Period 5,Period 6,Period 7,Period 8\n";
@@ -168,219 +206,180 @@ export default function TimetableManagementPage() {
             a.click();
             window.URL.revokeObjectURL(url);
         } catch (error: any) {
-            toast({
-                title: "Download failed",
-                description: error.message,
-                variant: "destructive"
-            });
+            toast({ title: "Download failed", description: error.message, variant: "destructive" });
         }
-    };
-
-    const handleDownloadSection = (sectionId: number, className: string, sectionName: string) => {
-        window.open(`/api/timetable/download/section/${sectionId}`, '_blank');
     };
 
     const canEdit = user?.role === "SUPER_ADMIN" || user?.role === "CORRESPONDENT" || user?.role === "PRINCIPAL";
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-8">
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold" data-testid="text-page-title">Timetable Management</h1>
-                    <p className="text-muted-foreground">Upload data, generate and download timetables</p>
+                    <h1 className="text-3xl font-bold" data-testid="text-page-title">Timetable Management</h1>
+                    <p className="text-muted-foreground">Upload, manage and download timetables</p>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <Select value={selectedWing} onValueChange={setSelectedWing}>
-                        <SelectTrigger className="w-48" data-testid="select-wing">
-                            <SelectValue placeholder="All Wings" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">All Wings</SelectItem>
-                            {wings?.map(wing => (
-                                <SelectItem key={wing.id} value={String(wing.id)}>{wing.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
+                <Select value={selectedWing} onValueChange={setSelectedWing}>
+                    <SelectTrigger className="w-48" data-testid="select-wing">
+                        <SelectValue placeholder="All Wings" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="">All Wings</SelectItem>
+                        {wings?.map(wing => (
+                            <SelectItem key={wing.id} value={String(wing.id)}>{wing.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
 
-            <Tabs defaultValue="upload" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="upload" data-testid="tab-upload">
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload Data
-                    </TabsTrigger>
-                    <TabsTrigger value="download" data-testid="tab-download">
-                        <Download className="w-4 h-4 mr-2" />
-                        Download Timetables
-                    </TabsTrigger>
-                    <TabsTrigger value="subjects" data-testid="tab-subjects">
-                        <BookOpen className="w-4 h-4 mr-2" />
-                        Subjects
-                    </TabsTrigger>
-                </TabsList>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                            Upload Master Data
+                        </CardTitle>
+                        <CardDescription>Import subjects, teacher mappings, and classes via CSV</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <ActionTileGroup>
+                            <ActionTile
+                                icon={BookOpen}
+                                label="UPLOAD SUBJECTS"
+                                variant="success"
+                                size="lg"
+                                onClick={() => { setUploadType("subjects"); setShowUploadForm(true); }}
+                                disabled={!canEdit}
+                                data-testid="button-upload-subjects"
+                            />
+                            <ActionTile
+                                icon={Users}
+                                label="UPLOAD TEACHER-SUBJECTS"
+                                variant="success"
+                                size="lg"
+                                onClick={() => { setUploadType("teachers"); setShowUploadForm(true); }}
+                                disabled={!canEdit}
+                                data-testid="button-upload-teachers"
+                            />
+                            <ActionTile
+                                icon={GraduationCap}
+                                label="UPLOAD CLASSES"
+                                variant="success"
+                                size="lg"
+                                onClick={() => { setUploadType("classes"); setShowUploadForm(true); }}
+                                disabled={!canEdit}
+                                data-testid="button-upload-classes"
+                            />
+                        </ActionTileGroup>
 
-                <TabsContent value="upload" className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <FileSpreadsheet className="w-5 h-5" />
-                                CSV/Excel Upload
-                            </CardTitle>
-                            <CardDescription>
-                                Upload teacher-subject mappings, subjects, or class/section data from CSV files
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <Label>Upload Type</Label>
-                                <Select value={uploadType} onValueChange={(v: any) => setUploadType(v)}>
-                                    <SelectTrigger data-testid="select-upload-type">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="subjects">Subjects (with periods per week/day, lab info)</SelectItem>
-                                        <SelectItem value="teachers">Teacher-Subject Mappings</SelectItem>
-                                        <SelectItem value="classes">Classes and Sections (7-13 sections support)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {uploadType === "subjects" && (
-                                <div className="p-4 bg-muted rounded-md space-y-2">
-                                    <p className="font-medium">Required CSV columns:</p>
-                                    <code className="text-sm block">name, code, periodsPerWeek, periodsPerDay, isLab, languageGroup, streamGroup, isLightSubject</code>
-                                    <p className="text-sm text-muted-foreground">
-                                        languageGroup: NONE, II_LANGUAGE, III_LANGUAGE | streamGroup: NONE, SCIENCE, COMMERCE, HUMANITIES
-                                    </p>
-                                </div>
-                            )}
-
-                            {uploadType === "teachers" && (
-                                <div className="p-4 bg-muted rounded-md space-y-2">
-                                    <p className="font-medium">Required CSV columns:</p>
-                                    <code className="text-sm block">teacherName, subjectName</code>
-                                    <p className="text-sm text-muted-foreground">
-                                        Teacher names should match exactly with existing teacher records
-                                    </p>
-                                </div>
-                            )}
-
-                            {uploadType === "classes" && (
-                                <div className="p-4 bg-muted rounded-md space-y-2">
-                                    <p className="font-medium">Required CSV columns:</p>
-                                    <code className="text-sm block">className, sectionName, roomNumber</code>
-                                    <p className="text-sm text-muted-foreground">
-                                        Supports Roman numerals (VI, IX, XII) and formats like "VI A1", "IX A5", "XII A8"
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="space-y-2">
-                                <Label>Upload CSV File</Label>
-                                <Input 
-                                    type="file" 
-                                    accept=".csv,.txt"
-                                    onChange={handleFileUpload}
-                                    disabled={!canEdit}
-                                    data-testid="input-csv-file"
+                        <div className="border-t pt-4">
+                            <h4 className="font-medium mb-3 text-muted-foreground">Delete Data</h4>
+                            <ActionTileGroup>
+                                <ActionTile
+                                    icon={Trash2}
+                                    label="DELETE ALL SUBJECTS"
+                                    variant="danger"
+                                    onClick={handleDeleteAllSubjects}
+                                    disabled={!canEdit || !subjects?.length}
+                                    data-testid="button-delete-subjects"
                                 />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Or paste CSV data directly</Label>
-                                <textarea
-                                    className="w-full h-40 p-3 border rounded-md font-mono text-sm"
-                                    placeholder="name,code,periodsPerWeek,periodsPerDay,isLab&#10;Mathematics,MATH,6,2,No&#10;Science,SCI,5,1,Yes"
-                                    value={csvData}
-                                    onChange={(e) => setCsvData(e.target.value)}
-                                    disabled={!canEdit}
-                                    data-testid="textarea-csv-data"
+                                <ActionTile
+                                    icon={Trash2}
+                                    label="DELETE ALL CLASSES"
+                                    variant="danger"
+                                    onClick={handleDeleteAllClasses}
+                                    disabled={!canEdit || !classes?.length}
+                                    data-testid="button-delete-classes"
                                 />
-                            </div>
-                        </CardContent>
-                        <CardFooter>
-                            <Button 
-                                onClick={handleUpload} 
-                                disabled={!canEdit || uploading || !csvData.trim()}
-                                data-testid="button-upload"
-                            >
-                                {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                                Upload Data
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                </TabsContent>
+                            </ActionTileGroup>
+                        </div>
 
-                <TabsContent value="download" className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Building2 className="w-5 h-5" />
-                                    Master Timetable
-                                </CardTitle>
-                                <CardDescription>
-                                    Full wing timetable with all classes and sections
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-sm text-muted-foreground mb-4">
-                                    Downloads complete timetable for {selectedWing ? `selected wing` : `all wings`}
-                                </p>
-                            </CardContent>
-                            <CardFooter>
-                                <Button onClick={handleDownloadMaster} data-testid="button-download-master">
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Download Master
-                                </Button>
-                            </CardFooter>
-                        </Card>
+                        {showUploadForm && (
+                            <Card className="border-2 border-dashed border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/20">
+                                <CardContent className="pt-6 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <Badge variant="secondary" className="text-sm">
+                                            Uploading: {uploadType === "subjects" ? "Subjects" : uploadType === "teachers" ? "Teacher-Subject Mappings" : "Classes"}
+                                        </Badge>
+                                        <Button variant="ghost" size="sm" onClick={() => setShowUploadForm(false)}>Cancel</Button>
+                                    </div>
+                                    
+                                    <div className="p-3 bg-muted rounded-md text-sm">
+                                        <strong>Required columns:</strong>
+                                        {uploadType === "subjects" && <code className="block mt-1">name, code, periodsPerWeek, periodsPerDay, isLab</code>}
+                                        {uploadType === "teachers" && <code className="block mt-1">teacherName, subjectName</code>}
+                                        {uploadType === "classes" && <code className="block mt-1">className, sectionName, roomNumber</code>}
+                                    </div>
 
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Users className="w-5 h-5" />
-                                    All Teachers Timetable
-                                </CardTitle>
-                                <CardDescription>
-                                    Bulk download all teacher timetables
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-sm text-muted-foreground mb-4">
-                                    Single CSV with every teacher's weekly schedule
-                                </p>
-                            </CardContent>
-                            <CardFooter>
-                                <Button onClick={handleDownloadTeachers} data-testid="button-download-teachers">
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Download All Teachers
-                                </Button>
-                            </CardFooter>
-                        </Card>
+                                    <div>
+                                        <Label>Choose CSV File</Label>
+                                        <Input type="file" accept=".csv,.txt" onChange={handleFileUpload} className="mt-1" data-testid="input-csv-file" />
+                                    </div>
 
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Calendar className="w-5 h-5" />
-                                    Class-Section Timetables
-                                </CardTitle>
-                                <CardDescription>
-                                    Download individual class timetables
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="max-h-60 overflow-y-auto space-y-2">
+                                    <div>
+                                        <Label>Or paste CSV data</Label>
+                                        <textarea
+                                            className="w-full h-32 p-3 mt-1 border rounded-md font-mono text-sm bg-background"
+                                            placeholder="Paste CSV data here..."
+                                            value={csvData}
+                                            onChange={(e) => setCsvData(e.target.value)}
+                                            data-testid="textarea-csv-data"
+                                        />
+                                    </div>
+
+                                    <Button onClick={handleUpload} disabled={uploading || !csvData.trim()} className="w-full" data-testid="button-upload-submit">
+                                        {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                                        Upload Data
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Download className="w-5 h-5 text-blue-600" />
+                            Download Timetables
+                        </CardTitle>
+                        <CardDescription>Export schedules as CSV</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <ActionTileGroup className="flex-col">
+                            <ActionTile
+                                icon={Building2}
+                                label="MASTER TIMETABLE"
+                                variant="info"
+                                size="lg"
+                                onClick={handleDownloadMaster}
+                                className="w-full"
+                                data-testid="button-download-master"
+                            />
+                            <ActionTile
+                                icon={Users}
+                                label="ALL TEACHERS"
+                                variant="info"
+                                size="lg"
+                                onClick={handleDownloadTeachers}
+                                className="w-full"
+                                data-testid="button-download-teachers"
+                            />
+                        </ActionTileGroup>
+
+                        <div className="border-t pt-4">
+                            <h4 className="font-medium mb-2 text-sm text-muted-foreground">Download by Section</h4>
+                            <div className="max-h-48 overflow-y-auto space-y-2">
                                 {classes?.map(cls => (
                                     <div key={cls.id} className="space-y-1">
-                                        <p className="font-medium text-sm">{cls.name}</p>
+                                        <p className="font-medium text-xs text-muted-foreground">{cls.name}</p>
                                         <div className="flex flex-wrap gap-1">
                                             {cls.sections.map(section => (
                                                 <Button
                                                     key={section.id}
                                                     size="sm"
                                                     variant="outline"
-                                                    onClick={() => handleDownloadSection(section.id, cls.name, section.name)}
+                                                    onClick={() => window.open(`/api/timetable/download/section/${section.id}`, '_blank')}
                                                     data-testid={`button-download-section-${section.id}`}
                                                 >
                                                     {section.name}
@@ -389,60 +388,68 @@ export default function TimetableManagementPage() {
                                         </div>
                                     </div>
                                 ))}
-                                {!classes?.length && (
-                                    <p className="text-sm text-muted-foreground">No classes found</p>
-                                )}
-                            </CardContent>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <Eye className="w-5 h-5" />
+                            Current Data Summary
+                        </CardTitle>
+                        <CardDescription>Overview of uploaded configuration</CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => { refetchSubjects(); refetchClasses(); refetchTeacherSubjects(); }}>
+                        <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card className="p-4 text-center">
+                            <div className="text-3xl font-bold text-emerald-600">{subjects?.length || 0}</div>
+                            <div className="text-sm text-muted-foreground">Subjects</div>
+                        </Card>
+                        <Card className="p-4 text-center">
+                            <div className="text-3xl font-bold text-blue-600">{teacherSubjects?.length || 0}</div>
+                            <div className="text-sm text-muted-foreground">Teacher-Subject Maps</div>
+                        </Card>
+                        <Card className="p-4 text-center">
+                            <div className="text-3xl font-bold text-purple-600">{classes?.length || 0}</div>
+                            <div className="text-sm text-muted-foreground">Classes</div>
+                        </Card>
+                        <Card className="p-4 text-center">
+                            <div className="text-3xl font-bold text-amber-600">{classes?.reduce((acc, c) => acc + (c.sections?.length || 0), 0) || 0}</div>
+                            <div className="text-sm text-muted-foreground">Sections</div>
                         </Card>
                     </div>
-                </TabsContent>
 
-                <TabsContent value="subjects" className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <BookOpen className="w-5 h-5" />
-                                Configured Subjects
-                            </CardTitle>
-                            <CardDescription>
-                                All subjects with their timetable configuration
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {subjects?.map(subject => (
-                                    <Card key={subject.id} className="p-4">
-                                        <div className="flex items-start justify-between gap-2 mb-2">
-                                            <div>
-                                                <h4 className="font-medium">{subject.name}</h4>
-                                                {subject.code && <p className="text-sm text-muted-foreground">{subject.code}</p>}
-                                            </div>
-                                            <div className="flex gap-1 flex-wrap">
-                                                {subject.isLab && <Badge variant="secondary">Lab</Badge>}
-                                                {subject.isLightSubject && <Badge variant="outline">Light</Badge>}
-                                            </div>
-                                        </div>
-                                        <div className="text-sm text-muted-foreground space-y-1">
-                                            <p>{subject.periodsPerWeek} periods/week, {subject.periodsPerDay} per day</p>
-                                            {subject.languageGroup !== "NONE" && (
-                                                <Badge variant="outline">{subject.languageGroup}</Badge>
-                                            )}
-                                            {subject.streamGroup !== "NONE" && (
-                                                <Badge variant="outline">{subject.streamGroup}</Badge>
-                                            )}
-                                        </div>
-                                    </Card>
+                    {subjects && subjects.length > 0 && (
+                        <div className="mt-6">
+                            <h4 className="font-medium mb-3">Subjects List</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {subjects.map(s => (
+                                    <Badge key={s.id} variant="secondary" className="gap-1">
+                                        {s.name}
+                                        {canEdit && (
+                                            <button 
+                                                onClick={() => deleteSubjectMutation.mutate(s.id)} 
+                                                className="ml-1 text-red-500 hover:text-red-700"
+                                                data-testid={`button-delete-subject-${s.id}`}
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </Badge>
                                 ))}
-                                {!subjects?.length && (
-                                    <p className="text-muted-foreground col-span-full">
-                                        No subjects configured. Upload subjects using the Upload tab.
-                                    </p>
-                                )}
                             </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     );
 }

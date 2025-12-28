@@ -43,8 +43,10 @@ import {
   Pencil,
   Upload,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  UserPlus
 } from "lucide-react";
+import { ActionTile, ActionTileGroup } from "@/components/ui/action-tile";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -77,6 +79,8 @@ export default function StaffPage() {
   const [editingStaff, setEditingStaff] = useState<any>(null);
   const [csvData, setCsvData] = useState<any[]>([]);
   const [csvFileName, setCsvFileName] = useState("");
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [newStaff, setNewStaff] = useState({
     fullName: "",
     username: "",
@@ -91,7 +95,7 @@ export default function StaffPage() {
   const { data: staff = [], isLoading } = useQuery({
     queryKey: ["/api/staff"],
     queryFn: async () => {
-      const res = await fetch("/api/staff");
+      const res = await fetch("/api/staff", { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -138,6 +142,20 @@ export default function StaffPage() {
       toast({ title: "Failed to remove staff", description: error.message, variant: "destructive" });
     },
   });
+
+  const handleDeleteAllStaff = async () => {
+    setIsDeletingAll(true);
+    try {
+      for (const s of staff) {
+        await deleteStaff.mutateAsync(s.id);
+      }
+      toast({ title: "All staff members deleted" });
+    } catch (error: any) {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
 
   const updateStaff = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
@@ -257,7 +275,7 @@ export default function StaffPage() {
 
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground" data-testid="text-title">
             Staff Management
@@ -266,20 +284,62 @@ export default function StaffPage() {
             Manage teachers and administrative staff
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => window.open('/api/staff/template', '_blank')}
-            data-testid="button-download-template"
-          >
-            <Download className="w-4 h-4 mr-2" /> Template
-          </Button>
-          <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" data-testid="button-bulk-upload">
-                <Upload className="w-4 h-4 mr-2" /> Bulk Upload
-              </Button>
-            </DialogTrigger>
+        
+        <Card className="p-4">
+          <ActionTileGroup>
+            <ActionTile
+              icon={UserPlus}
+              label="Add Staff"
+              variant="primary"
+              size="lg"
+              onClick={() => setIsAddOpen(true)}
+              data-testid="tile-add-staff"
+            />
+            <ActionTile
+              icon={Upload}
+              label="Bulk Upload"
+              variant="success"
+              size="lg"
+              onClick={() => setIsBulkOpen(true)}
+              data-testid="tile-bulk-upload"
+            />
+            <ActionTile
+              icon={Download}
+              label="Download Template"
+              variant="info"
+              size="lg"
+              onClick={() => window.open('/api/staff/template', '_blank')}
+              data-testid="tile-download-template"
+            />
+            <ActionTile
+              icon={isDeletingAll ? Loader2 : Trash2}
+              label="Delete All Staff"
+              variant="danger"
+              size="lg"
+              disabled={!staff.length || isDeletingAll}
+              onClick={() => setDeleteAllDialogOpen(true)}
+              data-testid="tile-delete-all-staff"
+            />
+          </ActionTileGroup>
+        </Card>
+      </div>
+
+      <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Staff Members?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {staff.length} staff member(s). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { handleDeleteAllStaff(); setDeleteAllDialogOpen(false); }}>Delete All</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Bulk Upload Staff</DialogTitle>
@@ -361,12 +421,8 @@ export default function StaffPage() {
               </div>
             </DialogContent>
           </Dialog>
+
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-staff">
-                <Plus className="w-4 h-4 mr-2" /> Add Staff
-              </Button>
-            </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Staff Member</DialogTitle>
@@ -480,8 +536,6 @@ export default function StaffPage() {
             </div>
           </DialogContent>
         </Dialog>
-        </div>
-      </div>
 
       <Card className="glass-card p-4">
         <div className="flex flex-col sm:flex-row gap-4 mb-4">

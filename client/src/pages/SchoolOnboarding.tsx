@@ -44,9 +44,23 @@ import {
   GraduationCap,
   Settings,
   Eye,
-  EyeOff
+  EyeOff,
+  School,
+  Trash2,
+  Download
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ActionTile, ActionTileGroup } from "@/components/ui/action-tile";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function SchoolOnboardingPage() {
   const { user } = useAuth();
@@ -55,6 +69,8 @@ export default function SchoolOnboardingPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [newSchool, setNewSchool] = useState({
     name: "",
     code: "",
@@ -75,7 +91,7 @@ export default function SchoolOnboardingPage() {
   const { data: schools = [], isLoading } = useQuery({
     queryKey: ["/api/admin/schools"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/schools");
+      const res = await fetch("/api/admin/schools", { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -148,6 +164,21 @@ export default function SchoolOnboardingPage() {
     school.code?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleDeleteAllSchools = async () => {
+    setIsDeletingAll(true);
+    try {
+      for (const school of schools) {
+        await apiRequest("DELETE", `/api/admin/schools/${school.id}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/schools"] });
+      toast({ title: "All schools deleted" });
+    } catch (error: any) {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
   if (user?.role !== "SUPER_ADMIN") {
     return (
       <div className="p-8 text-center">
@@ -168,7 +199,7 @@ export default function SchoolOnboardingPage() {
 
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground" data-testid="text-title">
             School Onboarding
@@ -177,12 +208,62 @@ export default function SchoolOnboardingPage() {
             Create and manage schools in the platform
           </p>
         </div>
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-school">
-              <Plus className="w-4 h-4 mr-2" /> Onboard New School
-            </Button>
-          </DialogTrigger>
+        
+        <Card className="p-4">
+          <ActionTileGroup>
+            <ActionTile
+              icon={School}
+              label="Onboard New School"
+              variant="primary"
+              size="lg"
+              onClick={() => setIsAddOpen(true)}
+              data-testid="tile-add-school"
+            />
+            <ActionTile
+              icon={Users}
+              label="View All Schools"
+              variant="info"
+              size="lg"
+              onClick={() => {}}
+              data-testid="tile-view-schools"
+            />
+            <ActionTile
+              icon={Settings}
+              label="Platform Settings"
+              variant="purple"
+              size="lg"
+              onClick={() => {}}
+              data-testid="tile-settings"
+            />
+            <ActionTile
+              icon={isDeletingAll ? Loader2 : Trash2}
+              label="Delete All Schools"
+              variant="danger"
+              size="lg"
+              disabled={!schools.length || isDeletingAll}
+              onClick={() => setDeleteAllDialogOpen(true)}
+              data-testid="tile-delete-all-schools"
+            />
+          </ActionTileGroup>
+        </Card>
+      </div>
+
+      <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Schools?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {schools.length} school(s) and all associated data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { handleDeleteAllSchools(); setDeleteAllDialogOpen(false); }}>Delete All</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Onboard New School</DialogTitle>
@@ -387,7 +468,6 @@ export default function SchoolOnboardingPage() {
             </Button>
           </DialogContent>
         </Dialog>
-      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
