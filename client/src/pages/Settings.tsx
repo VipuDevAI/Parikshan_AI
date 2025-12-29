@@ -891,6 +891,10 @@ export default function SettingsPage() {
     });
     
     const [formData, setFormData] = useState({
+        // Academic Year
+        academicYear: "2024-25",
+        academicYearStartMonth: 4,
+        academicYearEndMonth: 3,
         // Basic Timetable
         periodsPerDay: 8,
         periodDuration: 45,
@@ -939,6 +943,9 @@ export default function SettingsPage() {
     useEffect(() => {
         if (config) {
             setFormData({
+                academicYear: config.academicYear ?? "2024-25",
+                academicYearStartMonth: config.academicYearStartMonth ?? 4,
+                academicYearEndMonth: config.academicYearEndMonth ?? 3,
                 periodsPerDay: config.periodsPerDay ?? 8,
                 periodDuration: config.periodDuration ?? 45,
                 lunchAfterPeriod: config.lunchAfterPeriod ?? 4,
@@ -1078,10 +1085,14 @@ export default function SettingsPage() {
                 )}
             </div>
             
-            <Tabs defaultValue={isWingAdmin ? "wing" : "timetable"} className="w-full">
-                <TabsList className={`grid w-full ${isWingAdmin ? 'grid-cols-1 max-w-xs' : 'grid-cols-5'}`} data-testid="tabs-settings">
+            <Tabs defaultValue={isWingAdmin ? "wing" : "academic"} className="w-full">
+                <TabsList className={`grid w-full ${isWingAdmin ? 'grid-cols-1 max-w-xs' : 'grid-cols-6'}`} data-testid="tabs-settings">
                     {!isWingAdmin && (
                         <>
+                            <TabsTrigger value="academic" data-testid="tab-academic">
+                                <Calendar className="w-4 h-4 mr-2" />
+                                Academic Year
+                            </TabsTrigger>
                             <TabsTrigger value="timetable" data-testid="tab-timetable">
                                 <Clock className="w-4 h-4 mr-2" />
                                 Timetable
@@ -1105,6 +1116,84 @@ export default function SettingsPage() {
                         Wing Settings
                     </TabsTrigger>
                 </TabsList>
+                
+                <TabsContent value="academic" className="mt-6 space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Calendar className="w-5 h-5" />
+                                Academic Year Configuration
+                            </CardTitle>
+                            <CardDescription>Set your current academic year and session dates</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="academicYear">Current Academic Year</Label>
+                                    <Select
+                                        value={formData.academicYear || "2024-25"}
+                                        onValueChange={(value) => setFormData(prev => ({ ...prev, academicYear: value }))}
+                                        disabled={!canEdit}
+                                    >
+                                        <SelectTrigger id="academicYear" data-testid="select-academic-year">
+                                            <SelectValue placeholder="Select Academic Year" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="2023-24">2023-24</SelectItem>
+                                            <SelectItem value="2024-25">2024-25</SelectItem>
+                                            <SelectItem value="2025-26">2025-26</SelectItem>
+                                            <SelectItem value="2026-27">2026-27</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">
+                                        Academic year currently in progress
+                                    </p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="academicYearStartMonth">Session Start Month</Label>
+                                    <Select
+                                        value={String(formData.academicYearStartMonth || 4)}
+                                        onValueChange={(value) => setFormData(prev => ({ ...prev, academicYearStartMonth: parseInt(value) }))}
+                                        disabled={!canEdit}
+                                    >
+                                        <SelectTrigger id="academicYearStartMonth" data-testid="select-start-month">
+                                            <SelectValue placeholder="Select Month" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="1">January</SelectItem>
+                                            <SelectItem value="2">February</SelectItem>
+                                            <SelectItem value="3">March</SelectItem>
+                                            <SelectItem value="4">April</SelectItem>
+                                            <SelectItem value="5">May</SelectItem>
+                                            <SelectItem value="6">June</SelectItem>
+                                            <SelectItem value="7">July</SelectItem>
+                                            <SelectItem value="8">August</SelectItem>
+                                            <SelectItem value="9">September</SelectItem>
+                                            <SelectItem value="10">October</SelectItem>
+                                            <SelectItem value="11">November</SelectItem>
+                                            <SelectItem value="12">December</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">
+                                        Month when academic session begins (typically April for Indian schools)
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="p-4 bg-muted/30 rounded-lg">
+                                <h4 className="font-medium mb-2">Academic Year Change Actions</h4>
+                                <p className="text-sm text-muted-foreground mb-4">
+                                    When you change the academic year, the system will:
+                                </p>
+                                <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
+                                    <li>Update all reports and analytics to reflect the new session</li>
+                                    <li>Reset attendance statistics for the new year</li>
+                                    <li>Archive previous year's data for reference</li>
+                                </ul>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
                 
                 <TabsContent value="timetable" className="mt-6 space-y-6">
                     <Card>
