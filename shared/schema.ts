@@ -352,6 +352,11 @@ export const schoolConfig = pgTable("school_config", {
   // Per-School API Keys (SaaS model - each school pays for their own usage)
   openaiApiKey: text("openai_api_key"), // School's own OpenAI API key
   openaiKeyConfiguredAt: timestamp("openai_key_configured_at"), // When key was last updated
+  
+  // Academic Year Configuration
+  academicYear: text("academic_year").default("2024-25"), // Current academic year e.g. "2024-25"
+  academicYearStartMonth: integer("academic_year_start_month").default(4), // April = 4
+  academicYearEndMonth: integer("academic_year_end_month").default(3), // March = 3
 });
 
 // 12. Master Timetable (Frozen version)
