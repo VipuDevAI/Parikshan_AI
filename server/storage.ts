@@ -437,11 +437,6 @@ export class DatabaseStorage implements IStorage {
         return updated;
     }
 
-    // Face Encodings (for Edge Agent config sync)
-    async getFaceEncodings(schoolId: number): Promise<FaceEncoding[]> {
-        return db.select().from(faceEncodings).where(eq(faceEncodings.schoolId, schoolId));
-    }
-
     // === ADDITIONAL METHODS FOR ENGINES ===
 
     // Section methods

@@ -34,6 +34,15 @@ export const schools = pgTable("schools", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// 1b. Sessions (for authentication - managed separately but in schema to prevent db:push deletion)
+export const sessions = pgTable("sessions", {
+  token: text("token").primaryKey(),
+  userId: integer("user_id").notNull(),
+  schoolId: integer("school_id").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // 2. Wings (KG, Primary, etc.)
 export const wings = pgTable("wings", {
   id: serial("id").primaryKey(),
