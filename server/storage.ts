@@ -55,6 +55,8 @@ export interface IStorage {
     // Wings
     getWings(schoolId: number): Promise<Wing[]>;
     createWing(wing: InsertWing): Promise<Wing>;
+    updateWing(id: number, updates: Partial<InsertWing>): Promise<Wing | undefined>;
+    deleteWing(id: number): Promise<void>;
 
     // Academic
     getClasses(schoolId: number): Promise<(Class & { sections: Section[] })[]>;
@@ -178,6 +180,13 @@ export class DatabaseStorage implements IStorage {
     async createWing(wing: InsertWing): Promise<Wing> {
         const [newWing] = await db.insert(wings).values(wing).returning();
         return newWing;
+    }
+    async updateWing(id: number, updates: Partial<InsertWing>): Promise<Wing | undefined> {
+        const [updated] = await db.update(wings).set(updates).where(eq(wings.id, id)).returning();
+        return updated;
+    }
+    async deleteWing(id: number): Promise<void> {
+        await db.delete(wings).where(eq(wings.id, id));
     }
 
     // Academic
@@ -379,8 +388,8 @@ export class DatabaseStorage implements IStorage {
             .from(attendance)
             .where(and(
                 eq(attendance.schoolId, schoolId),
-                gte(attendance.checkInTime, startOfDay),
-                lte(attendance.checkInTime, endOfDay),
+                gte(attendance.date, startOfDay),
+                lte(attendance.date, endOfDay),
                 eq(attendance.status, 'PRESENT')
             ));
         

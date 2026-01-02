@@ -181,8 +181,39 @@ export async function registerRoutes(
       if (!req.user?.schoolId) {
         return res.status(401).json({ message: "School context required" });
       }
-      const wings = await storage.getWings(req.user.schoolId);
+      // SUPER_ADMIN can query wings for any school via schoolId query param
+      let schoolId = req.user.schoolId;
+      if (req.user.role === USER_ROLES.SUPER_ADMIN && req.query.schoolId) {
+        schoolId = Number(req.query.schoolId);
+      }
+      const wings = await storage.getWings(schoolId);
       res.json(wings);
+  });
+
+  app.post("/api/wings", requireAuth, requirePermission('MANAGE_WINGS'), async (req, res) => {
+      if (!req.user?.schoolId) {
+        return res.status(401).json({ message: "School context required" });
+      }
+      // SUPER_ADMIN can create wings for any school
+      let schoolId = req.user.schoolId;
+      if (req.user.role === USER_ROLES.SUPER_ADMIN && req.body.schoolId) {
+        schoolId = Number(req.body.schoolId);
+      }
+      const { name, minGrade, maxGrade } = req.body;
+      const wing = await storage.createWing({ schoolId, name, minGrade, maxGrade });
+      res.status(201).json(wing);
+  });
+
+  app.patch("/api/wings/:id", requireAuth, requirePermission('MANAGE_WINGS'), async (req, res) => {
+      const { name, minGrade, maxGrade } = req.body;
+      const wing = await storage.updateWing(Number(req.params.id), { name, minGrade, maxGrade });
+      if (!wing) return res.status(404).json({ message: "Wing not found" });
+      res.json(wing);
+  });
+
+  app.delete("/api/wings/:id", requireAuth, requirePermission('MANAGE_WINGS'), async (req, res) => {
+      await storage.deleteWing(Number(req.params.id));
+      res.json({ message: "Wing deleted" });
   });
 
   app.get("/api/classes", requireAuth, async (req, res) => {
@@ -1085,9 +1116,14 @@ export async function registerRoutes(
       if (!req.user?.schoolId) {
         return res.status(401).json({ message: "School context required" });
       }
-      let config = await storage.getSchoolConfig(req.user.schoolId);
+      // SUPER_ADMIN can query config for any school via schoolId query param
+      let schoolId = req.user.schoolId;
+      if (req.user.role === USER_ROLES.SUPER_ADMIN && req.query.schoolId) {
+        schoolId = Number(req.query.schoolId);
+      }
+      let config = await storage.getSchoolConfig(schoolId);
       if (!config) {
-          config = await storage.createSchoolConfig({ schoolId: req.user.schoolId });
+          config = await storage.createSchoolConfig({ schoolId });
       }
       res.json(config);
   });
@@ -1096,7 +1132,12 @@ export async function registerRoutes(
       if (!req.user?.schoolId) {
         return res.status(401).json({ message: "School context required" });
       }
-      const config = await storage.updateSchoolConfig(req.user.schoolId, req.body);
+      // SUPER_ADMIN can update config for any school via schoolId query param
+      let schoolId = req.user.schoolId;
+      if (req.user.role === USER_ROLES.SUPER_ADMIN && req.query.schoolId) {
+        schoolId = Number(req.query.schoolId);
+      }
+      const config = await storage.updateSchoolConfig(schoolId, req.body);
       if (!config) return res.status(404).json({ message: "Config not found" });
       res.json(config);
   });
