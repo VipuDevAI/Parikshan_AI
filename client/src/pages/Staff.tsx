@@ -733,14 +733,14 @@ export default function StaffPage() {
                 <div className="space-y-2">
                   <Label>Wing</Label>
                   <Select
-                    value={String(editingStaff.wingId || "")}
-                    onValueChange={(v) => setEditingStaff({ ...editingStaff, wingId: v ? Number(v) : null })}
+                    value={editingStaff.wingId ? String(editingStaff.wingId) : "none"}
+                    onValueChange={(v) => setEditingStaff({ ...editingStaff, wingId: v === "none" ? null : Number(v) })}
                   >
                     <SelectTrigger data-testid="select-edit-wing">
                       <SelectValue placeholder="Select wing" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Wing</SelectItem>
+                      <SelectItem value="none">No Wing</SelectItem>
                       {wings.map((w: any) => (
                         <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
                       ))}

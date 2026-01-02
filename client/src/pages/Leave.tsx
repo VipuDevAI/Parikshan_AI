@@ -22,11 +22,11 @@ const statusColors: Record<string, string> = {
 };
 
 const leaveTypeLabels: Record<string, string> = {
-    CASUAL: "Casual Leave",
-    SICK: "Sick Leave",
-    PERSONAL: "Personal Leave",
-    EMERGENCY: "Emergency Leave",
-    HALF_DAY: "Half Day"
+    FULL_DAY: "Full Day",
+    HALF_DAY_MORNING: "Half Day (Morning)",
+    HALF_DAY_AFTERNOON: "Half Day (Afternoon)",
+    ON_DUTY: "On-Duty",
+    PERMISSION: "Permission (up to 1 hour)"
 };
 
 export default function LeavePage() {
@@ -336,7 +336,7 @@ export default function LeavePage() {
 
 function LeaveApplicationForm({ user, onSuccess }: { user: any; onSuccess: () => void }) {
     const { toast } = useToast();
-    const [leaveType, setLeaveType] = useState("CASUAL");
+    const [leaveType, setLeaveType] = useState("FULL_DAY");
     const [date, setDate] = useState("");
     const [reason, setReason] = useState("");
     
@@ -387,11 +387,11 @@ function LeaveApplicationForm({ user, onSuccess }: { user: any; onSuccess: () =>
                         <SelectValue placeholder="Select leave type" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="CASUAL">Casual Leave</SelectItem>
-                        <SelectItem value="SICK">Sick Leave</SelectItem>
-                        <SelectItem value="PERSONAL">Personal Leave</SelectItem>
-                        <SelectItem value="EMERGENCY">Emergency Leave</SelectItem>
-                        <SelectItem value="HALF_DAY">Half Day</SelectItem>
+                        <SelectItem value="FULL_DAY">Full Day</SelectItem>
+                        <SelectItem value="HALF_DAY_MORNING">Half Day (Morning)</SelectItem>
+                        <SelectItem value="HALF_DAY_AFTERNOON">Half Day (Afternoon)</SelectItem>
+                        <SelectItem value="ON_DUTY">On-Duty</SelectItem>
+                        <SelectItem value="PERMISSION">Permission (up to 1 hour)</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

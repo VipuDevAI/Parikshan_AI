@@ -51,7 +51,7 @@ export default function CamerasPage() {
         location: "",
         type: "ENTRY",
         roomId: "",
-        sectionId: "",
+        sectionId: "none",
         brand: "",
         rtspUrl: "",
         resolution: "1080p",
@@ -158,7 +158,7 @@ export default function CamerasPage() {
             location: formData.location,
             type: formData.type,
             roomId: formData.roomId || null,
-            sectionId: formData.sectionId ? Number(formData.sectionId) : null,
+            sectionId: formData.sectionId && formData.sectionId !== "none" ? Number(formData.sectionId) : null,
             brand: formData.brand || null,
             rtspUrl: formData.rtspUrl || null,
             resolution: formData.resolution || null,
@@ -183,7 +183,7 @@ export default function CamerasPage() {
     };
 
     const resetCameraForm = () => {
-        setFormData({ name: "", location: "", type: "ENTRY", roomId: "", sectionId: "", brand: "", rtspUrl: "", resolution: "1080p", streamType: "main", nvrId: "", channelNumber: "" });
+        setFormData({ name: "", location: "", type: "ENTRY", roomId: "", sectionId: "none", brand: "", rtspUrl: "", resolution: "1080p", streamType: "main", nvrId: "", channelNumber: "" });
         setShowAddForm(false);
     };
 
@@ -307,7 +307,7 @@ export default function CamerasPage() {
                                                     <SelectValue placeholder="Select section" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="">Not a classroom camera</SelectItem>
+                                                    <SelectItem value="none">Not a classroom camera</SelectItem>
                                                     {sections?.map(s => (
                                                         <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                                                     ))}
@@ -387,7 +387,7 @@ export default function CamerasPage() {
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         {nvrs?.length === 0 && (
-                                                            <SelectItem value="" disabled>No NVRs configured - add one first</SelectItem>
+                                                            <SelectItem value="none" disabled>No NVRs configured - add one first</SelectItem>
                                                         )}
                                                         {nvrs?.map(nvr => (
                                                             <SelectItem key={nvr.id} value={String(nvr.id)}>{nvr.name} ({nvr.ipAddress})</SelectItem>
@@ -1076,14 +1076,14 @@ export default function CamerasPage() {
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Activity className="w-4 h-4 text-muted-foreground" />
-                                                <span>{agent.eventsToday || 0} events today</span>
+                                                <span>{agent.status === 'ONLINE' ? 'Active' : 'Inactive'}</span>
                                             </div>
                                         </div>
                                         
-                                        {agent.lastHeartbeat && (
+                                        {agent.lastHeartbeatAt && (
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                 <Clock className="w-3 h-3" />
-                                                <span>Last seen: {formatDistanceToNow(new Date(agent.lastHeartbeat), { addSuffix: true })}</span>
+                                                <span>Last seen: {formatDistanceToNow(new Date(agent.lastHeartbeatAt), { addSuffix: true })}</span>
                                             </div>
                                         )}
                                         

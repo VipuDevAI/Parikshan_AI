@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -60,9 +60,9 @@ export default function FaceRegistrationPage() {
     const bulkFileInputRef = useRef<HTMLInputElement>(null);
     const quickSearchInputRef = useRef<HTMLInputElement>(null);
     
-    const [selectedWing, setSelectedWing] = useState<string>("");
-    const [selectedClass, setSelectedClass] = useState<string>("");
-    const [selectedSection, setSelectedSection] = useState<string>("");
+    const [selectedWing, setSelectedWing] = useState<string>("all");
+    const [selectedClass, setSelectedClass] = useState<string>("all");
+    const [selectedSection, setSelectedSection] = useState<string>("all");
     const [searchTerm, setSearchTerm] = useState("");
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
@@ -99,19 +99,19 @@ export default function FaceRegistrationPage() {
     
     const schoolId = user?.schoolId || 1;
     
-    const { data: wings } = useQuery<Wing[]>({
+    const { data: wings, isLoading: wingsLoading, isError: wingsError } = useQuery<Wing[]>({
         queryKey: ['/api/wings'],
     });
     
-    const { data: classes } = useQuery<Class[]>({
+    const { data: classes, isLoading: classesLoading, isError: classesError } = useQuery<Class[]>({
         queryKey: ['/api/classes'],
     });
     
-    const { data: sections } = useQuery<Section[]>({
+    const { data: sections, isLoading: sectionsLoading, isError: sectionsError } = useQuery<Section[]>({
         queryKey: ['/api/sections'],
     });
     
-    const { data: students } = useQuery<Student[]>({
+    const { data: students, isLoading: studentsLoading, isError: studentsError } = useQuery<Student[]>({
         queryKey: ['/api/students'],
     });
     
@@ -120,36 +120,50 @@ export default function FaceRegistrationPage() {
         queryFn: async () => {
             const res = await fetch(`/api/face-encodings/${schoolId}`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch face encodings');
-            return res.json();
+            const data = await res.json();
+            // API returns { encodings: [], totalCount: 0 } - extract the array
+            return Array.isArray(data) ? data : (data.encodings || []);
         },
         enabled: !!schoolId
     });
     
-    const filteredClasses = classes?.filter(c => 
-        !selectedWing || c.wingId === parseInt(selectedWing)
-    ) || [];
+    // Check loading/error states BEFORE any derived computations
+    const isDataLoading = wingsLoading || classesLoading || sectionsLoading || studentsLoading;
+    const hasDataError = wingsError || classesError || sectionsError || studentsError;
+    const isDataReady = wings && classes && sections && students;
     
-    const filteredSections = sections?.filter(s => 
-        !selectedClass || s.classId === parseInt(selectedClass)
-    ) || [];
+    // Derived computations - only computed when data is ready (safe due to useMemo deps)
+    const filteredClasses = useMemo(() => {
+        if (!classes) return [];
+        return classes.filter(c => selectedWing === "all" || c.wingId === parseInt(selectedWing));
+    }, [classes, selectedWing]);
     
-    const filteredStudents = students?.filter(s => {
-        const section = sections?.find(sec => sec.id === s.sectionId);
-        const classItem = section ? classes?.find(c => c.id === section.classId) : null;
-        
-        if (selectedSection && s.sectionId !== parseInt(selectedSection)) return false;
-        if (selectedClass && section?.classId !== parseInt(selectedClass)) return false;
-        if (selectedWing && classItem?.wingId !== parseInt(selectedWing)) return false;
-        if (searchTerm && !s.fullName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-        
-        return true;
-    }) || [];
+    const filteredSections = useMemo(() => {
+        if (!sections) return [];
+        return sections.filter(s => selectedClass === "all" || s.classId === parseInt(selectedClass));
+    }, [sections, selectedClass]);
     
-    const studentEncodingMap = new Map(
-        faceEncodings?.filter(e => e.entityType === 'STUDENT').map(e => [e.entityId, e]) || []
-    );
+    const filteredStudents = useMemo(() => {
+        if (!students || !sections || !classes) return [];
+        return students.filter(s => {
+            const section = sections.find(sec => sec.id === s.sectionId);
+            const classItem = section ? classes.find(c => c.id === section.classId) : null;
+            
+            if (selectedSection !== "all" && s.sectionId !== parseInt(selectedSection)) return false;
+            if (selectedClass !== "all" && section?.classId !== parseInt(selectedClass)) return false;
+            if (selectedWing !== "all" && classItem?.wingId !== parseInt(selectedWing)) return false;
+            if (searchTerm && !s.fullName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+            
+            return true;
+        });
+    }, [students, sections, classes, selectedSection, selectedClass, selectedWing, searchTerm]);
     
-    const registeredCount = faceEncodings?.filter(e => e.entityType === 'STUDENT').length || 0;
+    const studentEncodingMap = useMemo(() => {
+        if (!Array.isArray(faceEncodings)) return new Map();
+        return new Map(faceEncodings.filter(e => e.entityType === 'STUDENT').map(e => [e.entityId, e]));
+    }, [faceEncodings]);
+    
+    const registeredCount = Array.isArray(faceEncodings) ? faceEncodings.filter(e => e.entityType === 'STUDENT').length : 0;
     const totalStudents = students?.length || 0;
     const registrationProgress = totalStudents > 0 ? (registeredCount / totalStudents) * 100 : 0;
     
@@ -308,6 +322,31 @@ export default function FaceRegistrationPage() {
             setIsDeletingAll(false);
         }
     };
+    
+    // Error guard - show error state if data fetch failed
+    if (hasDataError) {
+        return (
+            <div className="flex-1 flex items-center justify-center h-full p-8">
+                <div className="text-center">
+                    <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-4" />
+                    <p className="text-destructive font-medium">Failed to load data</p>
+                    <p className="text-muted-foreground mt-1">Please refresh the page or try again later.</p>
+                </div>
+            </div>
+        );
+    }
+    
+    // Loading guard - prevent blank page from undefined data
+    if (isDataLoading || !isDataReady) {
+        return (
+            <div className="flex-1 flex items-center justify-center h-full p-8">
+                <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+                    <p className="text-muted-foreground">Loading face registration data...</p>
+                </div>
+            </div>
+        );
+    }
     
     return (
         <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6" data-testid="page-face-registration">
@@ -574,7 +613,7 @@ export default function FaceRegistrationPage() {
                                             <SelectValue placeholder="All Wings" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">All Wings</SelectItem>
+                                            <SelectItem value="all">All Wings</SelectItem>
                                             {wings?.map(w => (
                                                 <SelectItem key={w.id} value={w.id.toString()}>{w.name}</SelectItem>
                                             ))}
@@ -583,12 +622,12 @@ export default function FaceRegistrationPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Class</Label>
-                                    <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); setSelectedSection(""); }}>
+                                    <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); setSelectedSection("all"); }}>
                                         <SelectTrigger data-testid="select-class">
                                             <SelectValue placeholder="All Classes" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">All Classes</SelectItem>
+                                            <SelectItem value="all">All Classes</SelectItem>
                                             {filteredClasses.map(c => (
                                                 <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                                             ))}
@@ -602,7 +641,7 @@ export default function FaceRegistrationPage() {
                                             <SelectValue placeholder="All Sections" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">All Sections</SelectItem>
+                                            <SelectItem value="all">All Sections</SelectItem>
                                             {filteredSections.map(s => (
                                                 <SelectItem key={s.id} value={s.id.toString()}>Section {s.name}</SelectItem>
                                             ))}
@@ -738,7 +777,7 @@ export default function FaceRegistrationPage() {
                                             <SelectValue placeholder="All Wings" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">All Wings</SelectItem>
+                                            <SelectItem value="all">All Wings</SelectItem>
                                             {wings?.map(w => (
                                                 <SelectItem key={w.id} value={w.id.toString()}>{w.name}</SelectItem>
                                             ))}
@@ -747,12 +786,12 @@ export default function FaceRegistrationPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Filter by Class (Optional)</Label>
-                                    <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); setSelectedSection(""); }}>
+                                    <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); setSelectedSection("all"); }}>
                                         <SelectTrigger data-testid="bulk-select-class">
                                             <SelectValue placeholder="All Classes" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">All Classes</SelectItem>
+                                            <SelectItem value="all">All Classes</SelectItem>
                                             {filteredClasses.map(c => (
                                                 <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                                             ))}
@@ -766,7 +805,7 @@ export default function FaceRegistrationPage() {
                                             <SelectValue placeholder="All Sections" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">All Sections</SelectItem>
+                                            <SelectItem value="all">All Sections</SelectItem>
                                             {filteredSections.map(s => (
                                                 <SelectItem key={s.id} value={s.id.toString()}>Section {s.name}</SelectItem>
                                             ))}
@@ -914,7 +953,7 @@ export default function FaceRegistrationPage() {
                                             <SelectValue placeholder="All Wings" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">All Wings</SelectItem>
+                                            <SelectItem value="all">All Wings</SelectItem>
                                             {wings?.map(w => (
                                                 <SelectItem key={w.id} value={w.id.toString()}>{w.name}</SelectItem>
                                             ))}
@@ -923,12 +962,12 @@ export default function FaceRegistrationPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Class</Label>
-                                    <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); setSelectedSection(""); }}>
+                                    <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); setSelectedSection("all"); }}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="All Classes" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">All Classes</SelectItem>
+                                            <SelectItem value="all">All Classes</SelectItem>
                                             {filteredClasses.map(c => (
                                                 <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                                             ))}
@@ -942,7 +981,7 @@ export default function FaceRegistrationPage() {
                                             <SelectValue placeholder="All Sections" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">All Sections</SelectItem>
+                                            <SelectItem value="all">All Sections</SelectItem>
                                             {filteredSections.map(s => (
                                                 <SelectItem key={s.id} value={s.id.toString()}>Section {s.name}</SelectItem>
                                             ))}

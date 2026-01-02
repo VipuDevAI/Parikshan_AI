@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Settings2, Camera, Clock, Shield, Bell, Save, Building2, Users, BookOpen, Eye, EyeOff, Calendar, Download, Play, FileSpreadsheet, FileText, Key, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Loader2, Settings2, Camera, Clock, Shield, Bell, Save, Building2, Users, BookOpen, Eye, EyeOff, Calendar, Download, Play, FileSpreadsheet, FileText, Key, CheckCircle, XCircle, AlertTriangle, Plus, Pencil, Trash2, Layers } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { SchoolConfig, Camera as CameraType, Wing, Class, Section, SectionCamera, LeaveRequest, Substitution, Timetable, User } from "@shared/schema";
+import type { SchoolConfig, Camera as CameraType, Wing, Class, Section, SectionCamera, LeaveRequest, Substitution, Timetable, User, School } from "@shared/schema";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -476,8 +478,8 @@ function ArattaiConfiguration({ canEdit, config }: { canEdit: boolean; config?: 
 
 function SectionCameraControls({ schoolId, cameras }: { schoolId: number; cameras: CameraType[] }) {
     const { toast } = useToast();
-    const [selectedWing, setSelectedWing] = useState<string>("");
-    const [selectedClass, setSelectedClass] = useState<string>("");
+    const [selectedWing, setSelectedWing] = useState<string>("all");
+    const [selectedClass, setSelectedClass] = useState<string>("all");
     
     const { data: wings } = useQuery<Wing[]>({ queryKey: ['/api/wings'] });
     const { data: classes } = useQuery<Class[]>({ queryKey: ['/api/classes'] });
@@ -486,10 +488,10 @@ function SectionCameraControls({ schoolId, cameras }: { schoolId: number; camera
         queryKey: ['/api/section-cameras', schoolId],
     });
     
-    const filteredClasses = classes?.filter(c => !selectedWing || c.wingId === parseInt(selectedWing)) || [];
+    const filteredClasses = classes?.filter(c => selectedWing === "all" || c.wingId === parseInt(selectedWing)) || [];
     const filteredSections = sections?.filter(s => {
-        if (selectedClass) return s.classId === parseInt(selectedClass);
-        if (selectedWing) {
+        if (selectedClass !== "all") return s.classId === parseInt(selectedClass);
+        if (selectedWing !== "all") {
             const sectionClass = classes?.find(c => c.id === s.classId);
             return sectionClass?.wingId === parseInt(selectedWing);
         }
@@ -540,12 +542,12 @@ function SectionCameraControls({ schoolId, cameras }: { schoolId: number; camera
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                         <Label>Filter by Wing</Label>
-                        <Select value={selectedWing} onValueChange={(v) => { setSelectedWing(v); setSelectedClass(""); }}>
+                        <Select value={selectedWing} onValueChange={(v) => { setSelectedWing(v); setSelectedClass("all"); }}>
                             <SelectTrigger data-testid="cam-select-wing">
                                 <SelectValue placeholder="All Wings" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Wings</SelectItem>
+                                <SelectItem value="all">All Wings</SelectItem>
                                 {wings?.map(w => (
                                     <SelectItem key={w.id} value={w.id.toString()}>{w.name}</SelectItem>
                                 ))}
@@ -559,7 +561,7 @@ function SectionCameraControls({ schoolId, cameras }: { schoolId: number; camera
                                 <SelectValue placeholder="All Classes" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Classes</SelectItem>
+                                <SelectItem value="all">All Classes</SelectItem>
                                 {filteredClasses.map(c => (
                                     <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                                 ))}
@@ -878,16 +880,302 @@ function SubstitutionManagement({ schoolId, canEdit }: { schoolId: number; canEd
     );
 }
 
+// Wing Management Component
+function WingManagement({ schoolId, wingsData, wingsLoading, canEdit, wingsQueryKey }: {
+    schoolId: number;
+    wingsData: Wing[];
+    wingsLoading: boolean;
+    canEdit: boolean;
+    wingsQueryKey: any[];
+}) {
+    const { toast } = useToast();
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [editingWing, setEditingWing] = useState<Wing | null>(null);
+    const [deleteWingId, setDeleteWingId] = useState<number | null>(null);
+    const [formData, setFormData] = useState({ name: '', minGrade: 1, maxGrade: 5 });
+    
+    const createWingMutation = useMutation({
+        mutationFn: async (data: { name: string; minGrade: number; maxGrade: number }) => {
+            return apiRequest('POST', '/api/wings', { ...data, schoolId });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: wingsQueryKey });
+            toast({ title: "Wing created successfully" });
+            setShowAddForm(false);
+            setFormData({ name: '', minGrade: 1, maxGrade: 5 });
+        },
+        onError: (e: any) => toast({ title: "Failed to create wing", description: e.message, variant: "destructive" }),
+    });
+    
+    const updateWingMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: number; data: Partial<{ name: string; minGrade: number; maxGrade: number }> }) => {
+            return apiRequest('PATCH', `/api/wings/${id}`, data);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: wingsQueryKey });
+            toast({ title: "Wing updated successfully" });
+            setEditingWing(null);
+        },
+        onError: (e: any) => toast({ title: "Failed to update wing", description: e.message, variant: "destructive" }),
+    });
+    
+    const deleteWingMutation = useMutation({
+        mutationFn: async (id: number) => {
+            return apiRequest('DELETE', `/api/wings/${id}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: wingsQueryKey });
+            toast({ title: "Wing deleted successfully" });
+            setDeleteWingId(null);
+        },
+        onError: (e: any) => toast({ title: "Failed to delete wing", description: e.message, variant: "destructive" }),
+    });
+    
+    const handleSubmit = () => {
+        if (!formData.name.trim()) {
+            toast({ title: "Wing name is required", variant: "destructive" });
+            return;
+        }
+        if (formData.minGrade > formData.maxGrade) {
+            toast({ title: "Min grade must be less than max grade", variant: "destructive" });
+            return;
+        }
+        createWingMutation.mutate(formData);
+    };
+    
+    const handleUpdate = () => {
+        if (!editingWing) return;
+        updateWingMutation.mutate({ 
+            id: editingWing.id, 
+            data: { name: editingWing.name, minGrade: editingWing.minGrade ?? undefined, maxGrade: editingWing.maxGrade ?? undefined } 
+        });
+    };
+    
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
+                <div>
+                    <CardTitle className="flex items-center gap-2">
+                        <Building2 className="w-5 h-5" />
+                        School Wings
+                    </CardTitle>
+                    <CardDescription>Manage wings/divisions for this school (e.g., Primary, Secondary, Senior Secondary)</CardDescription>
+                </div>
+                {canEdit && (
+                    <Button onClick={() => setShowAddForm(true)} disabled={showAddForm} data-testid="button-add-wing">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Wing
+                    </Button>
+                )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {showAddForm && (
+                    <div className="p-4 border rounded-lg space-y-4 bg-muted/30">
+                        <h4 className="font-medium">Add New Wing</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label>Wing Name</Label>
+                                <Input 
+                                    placeholder="e.g., Primary Wing" 
+                                    value={formData.name}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                    data-testid="input-wing-name"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Min Grade</Label>
+                                <Input 
+                                    type="number" 
+                                    min={1} 
+                                    max={12}
+                                    value={formData.minGrade}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, minGrade: parseInt(e.target.value) || 1 }))}
+                                    data-testid="input-min-grade"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Max Grade</Label>
+                                <Input 
+                                    type="number" 
+                                    min={1} 
+                                    max={12}
+                                    value={formData.maxGrade}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, maxGrade: parseInt(e.target.value) || 5 }))}
+                                    data-testid="input-max-grade"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button onClick={handleSubmit} disabled={createWingMutation.isPending} data-testid="button-save-wing">
+                                {createWingMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                Save Wing
+                            </Button>
+                            <Button variant="outline" onClick={() => { setShowAddForm(false); setFormData({ name: '', minGrade: 1, maxGrade: 5 }); }}>
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
+                )}
+                
+                {wingsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                    </div>
+                ) : wingsData && wingsData.length > 0 ? (
+                    <div className="space-y-3">
+                        {wingsData.map(wing => (
+                            <div 
+                                key={wing.id} 
+                                className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50"
+                                data-testid={`wing-item-${wing.id}`}
+                            >
+                                {editingWing?.id === wing.id ? (
+                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                                        <Input 
+                                            value={editingWing.name}
+                                            onChange={(e) => setEditingWing({ ...editingWing, name: e.target.value })}
+                                            placeholder="Wing name"
+                                        />
+                                        <Input 
+                                            type="number" 
+                                            value={editingWing.minGrade || 1}
+                                            onChange={(e) => setEditingWing({ ...editingWing, minGrade: parseInt(e.target.value) || 1 })}
+                                        />
+                                        <Input 
+                                            type="number" 
+                                            value={editingWing.maxGrade || 5}
+                                            onChange={(e) => setEditingWing({ ...editingWing, maxGrade: parseInt(e.target.value) || 5 })}
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button size="sm" onClick={handleUpdate} disabled={updateWingMutation.isPending}>
+                                                {updateWingMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={() => setEditingWing(null)}>Cancel</Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex items-center gap-3">
+                                            <Building2 className="w-5 h-5 text-primary" />
+                                            <div>
+                                                <p className="font-medium">{wing.name}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Grades {wing.minGrade || 1} to {wing.maxGrade || 12}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="secondary">
+                                                {(wing.maxGrade || 0) - (wing.minGrade || 0) + 1} Grades
+                                            </Badge>
+                                            {canEdit && (
+                                                <>
+                                                    <Button size="icon" variant="ghost" onClick={() => setEditingWing(wing)} data-testid={`button-edit-wing-${wing.id}`}>
+                                                        <Pencil className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button size="icon" variant="ghost" onClick={() => setDeleteWingId(wing.id)} data-testid={`button-delete-wing-${wing.id}`}>
+                                                        <Trash2 className="w-4 h-4 text-destructive" />
+                                                    </Button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                        <Building2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>No wings configured yet</p>
+                        <p className="text-sm mt-1">Click "Add Wing" to create your first wing</p>
+                    </div>
+                )}
+            </CardContent>
+            
+            <AlertDialog open={deleteWingId !== null} onOpenChange={(open) => !open && setDeleteWingId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Wing</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete this wing? This action cannot be undone and may affect classes and teachers assigned to this wing.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={() => deleteWingId && deleteWingMutation.mutate(deleteWingId)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {deleteWingMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </Card>
+    );
+}
+
 export default function SettingsPage() {
     const { user } = useAuth();
     const { toast } = useToast();
+    const isSuperAdmin = user?.role === "SUPER_ADMIN";
+    
+    // School selector state for SUPER_ADMIN
+    const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
+    
+    // Query all schools for SUPER_ADMIN
+    const { data: allSchools } = useQuery<School[]>({
+        queryKey: ['/api/admin/schools'],
+        enabled: isSuperAdmin,
+    });
+    
+    // Set default school when schools are loaded for SUPER_ADMIN
+    useEffect(() => {
+        if (isSuperAdmin && allSchools && allSchools.length > 0 && selectedSchoolId === null) {
+            setSelectedSchoolId(allSchools[0].id);
+        }
+    }, [allSchools, isSuperAdmin, selectedSchoolId]);
+    
+    // Determine effective schoolId for queries
+    const effectiveSchoolId = isSuperAdmin ? selectedSchoolId : null;
+    const configQueryKey = isSuperAdmin && effectiveSchoolId 
+        ? ['/api/config', { schoolId: effectiveSchoolId }]
+        : ['/api/config'];
     
     const { data: config, isLoading } = useQuery<SchoolConfig | null>({
-        queryKey: ['/api/config'],
+        queryKey: configQueryKey,
+        queryFn: async () => {
+            const url = isSuperAdmin && effectiveSchoolId 
+                ? `/api/config?schoolId=${effectiveSchoolId}` 
+                : '/api/config';
+            const res = await fetch(url, { credentials: 'include' });
+            if (!res.ok) throw new Error('Failed to fetch config');
+            return res.json();
+        },
+        enabled: !isSuperAdmin || effectiveSchoolId !== null,
     });
     
     const { data: cameras, isLoading: camerasLoading } = useQuery<CameraType[]>({
         queryKey: ['/api/cameras'],
+    });
+    
+    // Wings query for Wings tab
+    const wingsQueryKey = isSuperAdmin && effectiveSchoolId 
+        ? ['/api/wings', { schoolId: effectiveSchoolId }]
+        : ['/api/wings'];
+    const { data: wingsData, isLoading: wingsLoading } = useQuery<Wing[]>({
+        queryKey: wingsQueryKey,
+        queryFn: async () => {
+            const url = isSuperAdmin && effectiveSchoolId 
+                ? `/api/wings?schoolId=${effectiveSchoolId}` 
+                : '/api/wings';
+            const res = await fetch(url, { credentials: 'include' });
+            if (!res.ok) throw new Error('Failed to fetch wings');
+            return res.json();
+        },
+        enabled: !isSuperAdmin || effectiveSchoolId !== null,
     });
     
     const [formData, setFormData] = useState({
@@ -1073,16 +1361,36 @@ export default function SettingsPage() {
                     <h1 className="text-2xl font-display font-bold" data-testid="text-settings-title">School Configuration</h1>
                     <p className="text-muted-foreground text-sm mt-1">Manage your school settings and AI preferences</p>
                 </div>
-                {canEdit && (
-                    <Button 
-                        onClick={handleSave} 
-                        disabled={updateMutation.isPending}
-                        data-testid="button-save-settings"
-                    >
-                        {updateMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                        Save Changes
-                    </Button>
-                )}
+                <div className="flex items-center gap-3 flex-wrap">
+                    {isSuperAdmin && allSchools && allSchools.length > 0 && (
+                        <Select 
+                            value={selectedSchoolId?.toString() || ""} 
+                            onValueChange={(val) => setSelectedSchoolId(parseInt(val))}
+                        >
+                            <SelectTrigger className="w-64" data-testid="select-school">
+                                <Building2 className="w-4 h-4 mr-2" />
+                                <SelectValue placeholder="Select School" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allSchools.map(school => (
+                                    <SelectItem key={school.id} value={school.id.toString()}>
+                                        {school.name} ({school.code})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                    {canEdit && (
+                        <Button 
+                            onClick={handleSave} 
+                            disabled={updateMutation.isPending}
+                            data-testid="button-save-settings"
+                        >
+                            {updateMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                            Save Changes
+                        </Button>
+                    )}
+                </div>
             </div>
             
             <Tabs defaultValue={isWingAdmin ? "wing" : "academic"} className="w-full">
@@ -1832,6 +2140,15 @@ export default function SettingsPage() {
                 </TabsContent>
                 
                 <TabsContent value="wing" className="mt-6 space-y-6">
+                    {/* Wing Management Section */}
+                    <WingManagement 
+                        schoolId={isSuperAdmin && effectiveSchoolId ? effectiveSchoolId : (user?.schoolId || 1)} 
+                        wingsData={wingsData || []} 
+                        wingsLoading={wingsLoading} 
+                        canEdit={canEdit}
+                        wingsQueryKey={wingsQueryKey}
+                    />
+                    
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">

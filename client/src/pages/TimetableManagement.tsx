@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ActionTile, ActionTileGroup } from "@/components/ui/action-tile";
 import { 
     Upload, Download, FileSpreadsheet, Users, BookOpen, Calendar, 
-    Building2, Loader2, Trash2, Eye, RefreshCw, FileText, GraduationCap
+    Building2, Loader2, Trash2, Eye, RefreshCw, FileText, GraduationCap, AlertCircle
 } from "lucide-react";
 import type { Wing, Class, Section, Subject } from "@shared/schema";
 
@@ -27,11 +27,11 @@ export default function TimetableManagementPage() {
     const [uploading, setUploading] = useState(false);
     const [showUploadForm, setShowUploadForm] = useState(false);
     
-    const { data: wings } = useQuery<Wing[]>({
+    const { data: wings, isLoading: wingsLoading, isError: wingsError } = useQuery<Wing[]>({
         queryKey: ['/api/wings'],
     });
     
-    const { data: classes, refetch: refetchClasses } = useQuery<(Class & { sections: Section[] })[]>({
+    const { data: classes, isLoading: classesLoading, isError: classesError, refetch: refetchClasses } = useQuery<(Class & { sections: Section[] })[]>({
         queryKey: ['/api/classes'],
         queryFn: async () => {
             const classesRes = await fetch('/api/classes', { credentials: 'include' });
@@ -49,9 +49,14 @@ export default function TimetableManagementPage() {
         }
     });
     
-    const { data: subjects, refetch: refetchSubjects } = useQuery<Subject[]>({
+    const { data: subjects, isLoading: subjectsLoading, isError: subjectsError, refetch: refetchSubjects } = useQuery<Subject[]>({
         queryKey: ['/api/subjects'],
     });
+    
+    // Check loading/error states
+    const isDataLoading = wingsLoading || classesLoading || subjectsLoading;
+    const hasDataError = wingsError || classesError || subjectsError;
+    const isDataReady = wings && classes && subjects;
 
     const { data: teacherSubjects, refetch: refetchTeacherSubjects } = useQuery<any[]>({
         queryKey: ['/api/teacher-subjects'],
@@ -212,6 +217,31 @@ export default function TimetableManagementPage() {
 
     const canEdit = user?.role === "SUPER_ADMIN" || user?.role === "CORRESPONDENT" || user?.role === "PRINCIPAL";
 
+    // Error guard - show error state if data fetch failed
+    if (hasDataError) {
+        return (
+            <div className="flex-1 flex items-center justify-center h-full p-8">
+                <div className="text-center">
+                    <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-4" />
+                    <p className="text-destructive font-medium">Failed to load data</p>
+                    <p className="text-muted-foreground mt-1">Please refresh the page or try again later.</p>
+                </div>
+            </div>
+        );
+    }
+    
+    // Loading guard - prevent blank page from undefined data
+    if (isDataLoading || !isDataReady) {
+        return (
+            <div className="flex-1 flex items-center justify-center h-full p-8">
+                <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+                    <p className="text-muted-foreground">Loading timetable data...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="p-6 space-y-8">
             <div className="flex items-center justify-between flex-wrap gap-4">
@@ -219,12 +249,12 @@ export default function TimetableManagementPage() {
                     <h1 className="text-3xl font-bold" data-testid="text-page-title">Timetable Management</h1>
                     <p className="text-muted-foreground">Upload, manage and download timetables</p>
                 </div>
-                <Select value={selectedWing} onValueChange={setSelectedWing}>
+                <Select value={selectedWing || "all"} onValueChange={(v) => setSelectedWing(v === "all" ? "" : v)}>
                     <SelectTrigger className="w-48" data-testid="select-wing">
                         <SelectValue placeholder="All Wings" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">All Wings</SelectItem>
+                        <SelectItem value="all">All Wings</SelectItem>
                         {wings?.map(wing => (
                             <SelectItem key={wing.id} value={String(wing.id)}>{wing.name}</SelectItem>
                         ))}

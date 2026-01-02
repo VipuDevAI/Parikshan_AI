@@ -179,6 +179,22 @@ export default function SchoolOnboardingPage() {
     }
   };
 
+  const deleteSchool = useMutation({
+    mutationFn: async (schoolId: number) => {
+      return apiRequest("DELETE", `/api/admin/schools/${schoolId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/schools"] });
+      toast({ title: "School deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const [deleteSchoolId, setDeleteSchoolId] = useState<number | null>(null);
+  const [manageSchoolId, setManageSchoolId] = useState<number | null>(null);
+
   if (user?.role !== "SUPER_ADMIN") {
     return (
       <div className="p-8 text-center">
@@ -602,9 +618,24 @@ export default function SchoolOnboardingPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm">
-                        <Settings className="w-4 h-4 mr-1" /> Manage
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setManageSchoolId(school.id)}
+                          data-testid={`button-manage-school-${school.id}`}
+                        >
+                          <Settings className="w-4 h-4 mr-1" /> Manage
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setDeleteSchoolId(school.id)}
+                          data-testid={`button-delete-school-${school.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -613,6 +644,73 @@ export default function SchoolOnboardingPage() {
           </div>
         )}
       </Card>
+
+      {/* Delete Single School Dialog */}
+      <AlertDialog open={deleteSchoolId !== null} onOpenChange={(open) => !open && setDeleteSchoolId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete School?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this school and all associated data (wings, classes, students, staff, timetables, etc.). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => { 
+                if (deleteSchoolId !== null) {
+                  void deleteSchool.mutate(deleteSchoolId);
+                }
+                setDeleteSchoolId(null); 
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete School
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Manage School Dialog */}
+      <Dialog open={manageSchoolId !== null} onOpenChange={(open) => !open && setManageSchoolId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage School</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {manageSchoolId && (() => {
+              const school = schools.find((s: any) => s.id === manageSchoolId);
+              return school ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <h3 className="font-semibold">{school.name}</h3>
+                    <p className="text-sm text-muted-foreground">Code: {school.code}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Quick Actions:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="outline" size="sm" onClick={() => copyToClipboard(school.code, "School code")}>
+                        <Copy className="w-3 h-3 mr-1" /> Copy Code
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        setManageSchoolId(null);
+                        toast({ title: "Feature coming soon", description: "School editing will be available in the next update" });
+                      }}>
+                        <Settings className="w-3 h-3 mr-1" /> Edit Details
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      To manage wings, classes, staff, and students for this school, login as the school's Principal.
+                    </p>
+                  </div>
+                </div>
+              ) : null;
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
