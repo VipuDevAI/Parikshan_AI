@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -192,8 +194,23 @@ export default function SchoolOnboardingPage() {
     },
   });
 
+  const updateSchool = useMutation({
+    mutationFn: async ({ id, updates }: { id: number; updates: { name?: string; address?: string; tier?: string; isActive?: boolean } }) => {
+      return apiRequest("PATCH", `/api/admin/schools/${id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/schools"] });
+      toast({ title: "School updated successfully" });
+      setManageSchoolId(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const [deleteSchoolId, setDeleteSchoolId] = useState<number | null>(null);
   const [manageSchoolId, setManageSchoolId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", address: "", tier: "STANDARD", isActive: true });
 
   if (user?.role !== "SUPER_ADMIN") {
     return (
@@ -622,7 +639,15 @@ export default function SchoolOnboardingPage() {
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => setManageSchoolId(school.id)}
+                          onClick={() => {
+                            setEditForm({ 
+                              name: school.name, 
+                              address: school.address || "", 
+                              tier: school.tier || "STANDARD", 
+                              isActive: school.isActive ?? true 
+                            });
+                            setManageSchoolId(school.id);
+                          }}
                           data-testid={`button-manage-school-${school.id}`}
                         >
                           <Settings className="w-4 h-4 mr-1" /> Manage
@@ -672,43 +697,143 @@ export default function SchoolOnboardingPage() {
       </AlertDialog>
 
       {/* Manage School Dialog */}
-      <Dialog open={manageSchoolId !== null} onOpenChange={(open) => !open && setManageSchoolId(null)}>
+      <Dialog 
+        open={manageSchoolId !== null} 
+        onOpenChange={(open) => {
+          if (!open) setManageSchoolId(null);
+          else if (manageSchoolId) {
+            const school = schools.find((s: any) => s.id === manageSchoolId);
+            if (school) {
+              setEditForm({ 
+                name: school.name, 
+                address: school.address || "", 
+                tier: school.tier || "STANDARD", 
+                isActive: school.isActive ?? true 
+              });
+            }
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Manage School</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {manageSchoolId && (() => {
-              const school = schools.find((s: any) => s.id === manageSchoolId);
-              return school ? (
+          {manageSchoolId && (() => {
+            const school = schools.find((s: any) => s.id === manageSchoolId);
+            if (!school) return null;
+            
+            // Initialize form when dialog opens
+            if (editForm.name === "" && school.name) {
+              setEditForm({ 
+                name: school.name, 
+                address: school.address || "", 
+                tier: school.tier || "STANDARD", 
+                isActive: school.isActive ?? true 
+              });
+            }
+            
+            return (
+              <div className="space-y-4">
+                <div className="p-3 bg-muted/30 rounded-lg flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm text-muted-foreground">School Code</p>
+                    <p className="font-mono font-semibold">{school.code}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => copyToClipboard(school.code, "School code")}>
+                    <Copy className="w-3 h-3 mr-1" /> Copy
+                  </Button>
+                </div>
+                
                 <div className="space-y-4">
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <h3 className="font-semibold">{school.name}</h3>
-                    <p className="text-sm text-muted-foreground">Code: {school.code}</p>
-                  </div>
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Quick Actions:</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button variant="outline" size="sm" onClick={() => copyToClipboard(school.code, "School code")}>
-                        <Copy className="w-3 h-3 mr-1" /> Copy Code
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => {
-                        setManageSchoolId(null);
-                        toast({ title: "Feature coming soon", description: "School editing will be available in the next update" });
-                      }}>
-                        <Settings className="w-3 h-3 mr-1" /> Edit Details
-                      </Button>
-                    </div>
+                    <Label htmlFor="edit-name">School Name</Label>
+                    <Input
+                      id="edit-name"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter school name"
+                      data-testid="input-edit-school-name"
+                    />
                   </div>
-                  <div className="pt-4 border-t">
-                    <p className="text-xs text-muted-foreground">
-                      To manage wings, classes, staff, and students for this school, login as the school's Principal.
-                    </p>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-address">Address</Label>
+                    <Textarea
+                      id="edit-address"
+                      value={editForm.address}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                      placeholder="Enter school address"
+                      rows={2}
+                      data-testid="input-edit-school-address"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-tier">Subscription Tier</Label>
+                    <Select
+                      value={editForm.tier}
+                      onValueChange={(value) => setEditForm(prev => ({ ...prev, tier: value }))}
+                    >
+                      <SelectTrigger id="edit-tier" data-testid="select-edit-tier">
+                        <SelectValue placeholder="Select tier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BASIC">Basic</SelectItem>
+                        <SelectItem value="STANDARD">Standard</SelectItem>
+                        <SelectItem value="PREMIUM">Premium</SelectItem>
+                        <SelectItem value="ENTERPRISE">Enterprise</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="edit-active">School Active</Label>
+                    <Switch
+                      id="edit-active"
+                      checked={editForm.isActive}
+                      onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, isActive: checked }))}
+                      data-testid="switch-edit-active"
+                    />
                   </div>
                 </div>
-              ) : null;
-            })()}
-          </div>
+                
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => setManageSchoolId(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    className="flex-1"
+                    onClick={() => {
+                      updateSchool.mutate({
+                        id: manageSchoolId,
+                        updates: {
+                          name: editForm.name,
+                          address: editForm.address || undefined,
+                          tier: editForm.tier,
+                          isActive: editForm.isActive
+                        }
+                      });
+                    }}
+                    disabled={updateSchool.isPending || !editForm.name.trim()}
+                    data-testid="button-save-school"
+                  >
+                    {updateSchool.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    Save Changes
+                  </Button>
+                </div>
+                
+                <div className="pt-2">
+                  <p className="text-xs text-muted-foreground">
+                    To manage wings, classes, staff, and students, login as the school's Principal.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Settings2, Camera, Clock, Shield, Bell, Save, Building2, Users, BookOpen, Eye, EyeOff, Calendar, Download, Play, FileSpreadsheet, FileText, Key, CheckCircle, XCircle, AlertTriangle, Plus, Pencil, Trash2, Layers } from "lucide-react";
+import { Loader2, Settings2, Camera, Clock, Shield, Bell, Save, Building2, Users, BookOpen, Eye, EyeOff, Calendar, Download, Play, FileSpreadsheet, FileText, Key, CheckCircle, XCircle, AlertTriangle, Plus, Pencil, Trash2, Layers, Lock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -1394,7 +1394,7 @@ export default function SettingsPage() {
             </div>
             
             <Tabs defaultValue={isWingAdmin ? "wing" : "academic"} className="w-full">
-                <TabsList className={`grid w-full ${isWingAdmin ? 'grid-cols-1 max-w-xs' : 'grid-cols-6'}`} data-testid="tabs-settings">
+                <TabsList className={`grid w-full ${isWingAdmin ? 'grid-cols-2 max-w-md' : 'grid-cols-7'}`} data-testid="tabs-settings">
                     {!isWingAdmin && (
                         <>
                             <TabsTrigger value="academic" data-testid="tab-academic">
@@ -1422,6 +1422,10 @@ export default function SettingsPage() {
                     <TabsTrigger value="wing" data-testid="tab-wing">
                         <Building2 className="w-4 h-4 mr-2" />
                         Wing Settings
+                    </TabsTrigger>
+                    <TabsTrigger value="account" data-testid="tab-account">
+                        <Lock className="w-4 h-4 mr-2" />
+                        Account
                     </TabsTrigger>
                 </TabsList>
                 
@@ -2428,7 +2432,150 @@ export default function SettingsPage() {
                         </div>
                     )}
                 </TabsContent>
+
+                <TabsContent value="account" className="mt-6 space-y-6">
+                    <PasswordChangeForm />
+                </TabsContent>
             </Tabs>
         </div>
+    );
+}
+
+function PasswordChangeForm() {
+    const { toast } = useToast();
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [showCurrent, setShowCurrent] = useState(false);
+    const [showNew, setShowNew] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    
+    const changePasswordMutation = useMutation({
+        mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+            return apiRequest('POST', '/api/auth/change-password', data);
+        },
+        onSuccess: () => {
+            toast({ title: "Password Changed", description: "Your password has been updated successfully." });
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+        },
+        onError: (error: any) => {
+            toast({ title: "Error", description: error.message || "Failed to change password", variant: "destructive" });
+        },
+    });
+    
+    const handleSubmit = () => {
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            toast({ title: "Error", description: "All fields are required", variant: "destructive" });
+            return;
+        }
+        if (newPassword.length < 6) {
+            toast({ title: "Error", description: "New password must be at least 6 characters", variant: "destructive" });
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            toast({ title: "Error", description: "New passwords do not match", variant: "destructive" });
+            return;
+        }
+        changePasswordMutation.mutate({ currentPassword, newPassword });
+    };
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Lock className="w-5 h-5" />
+                    Change Password
+                </CardTitle>
+                <CardDescription>
+                    Update your account password. You will need to enter your current password to confirm changes.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 max-w-md">
+                <div className="space-y-2">
+                    <Label htmlFor="currentPassword">Current Password</Label>
+                    <div className="relative">
+                        <Input
+                            id="currentPassword"
+                            type={showCurrent ? "text" : "password"}
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            placeholder="Enter current password"
+                            data-testid="input-current-password"
+                        />
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 -translate-y-1/2"
+                            onClick={() => setShowCurrent(!showCurrent)}
+                            data-testid="button-toggle-current"
+                        >
+                            {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="newPassword">New Password</Label>
+                    <div className="relative">
+                        <Input
+                            id="newPassword"
+                            type={showNew ? "text" : "password"}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Enter new password (min 6 characters)"
+                            data-testid="input-new-password"
+                        />
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 -translate-y-1/2"
+                            onClick={() => setShowNew(!showNew)}
+                            data-testid="button-toggle-new"
+                        >
+                            {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                    <div className="relative">
+                        <Input
+                            id="confirmPassword"
+                            type={showConfirm ? "text" : "password"}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Confirm new password"
+                            data-testid="input-confirm-password"
+                        />
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 -translate-y-1/2"
+                            onClick={() => setShowConfirm(!showConfirm)}
+                            data-testid="button-toggle-confirm"
+                        >
+                            {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                    </div>
+                </div>
+                <Button 
+                    onClick={handleSubmit} 
+                    disabled={changePasswordMutation.isPending}
+                    className="w-full"
+                    data-testid="button-change-password"
+                >
+                    {changePasswordMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                        <Lock className="w-4 h-4 mr-2" />
+                    )}
+                    Change Password
+                </Button>
+            </CardContent>
+        </Card>
     );
 }
