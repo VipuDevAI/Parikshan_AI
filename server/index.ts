@@ -4,6 +4,46 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { sessionMiddleware } from "./middleware/session";
+import { storage } from "./storage";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import bcrypt from "bcrypt";
+
+// Seed Super Admin on startup if no users exist
+async function seedSuperAdmin() {
+  try {
+    const existingUsers = await db.select().from(users).limit(1);
+    if (existingUsers.length === 0) {
+      // Create system school first
+      let systemSchool = await storage.getSchoolByCode("SYSTEM");
+      if (!systemSchool) {
+        systemSchool = await storage.createSchool({
+          name: "System Administration",
+          code: "SYSTEM",
+          address: "Parikshan.AI Platform",
+          tier: "ENTERPRISE",
+          isActive: true,
+        });
+        console.log("Created system school for Super Admin");
+      }
+      
+      // Create Super Admin
+      const hashedPassword = await bcrypt.hash("Admin@123", 10);
+      await storage.createUser({
+        schoolId: systemSchool.id,
+        username: "superadmin",
+        password: hashedPassword,
+        fullName: "Super Admin",
+        role: "SUPER_ADMIN",
+        email: "superadmin@parikshan.ai",
+        isActive: true,
+      });
+      console.log("Created Super Admin user (username: superadmin, password: Admin@123)");
+    }
+  } catch (error) {
+    console.error("Error seeding Super Admin:", error);
+  }
+}
 
 const app = express();
 const httpServer = createServer(app);
@@ -64,6 +104,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Seed Super Admin if database is empty
+  await seedSuperAdmin();
+  
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
