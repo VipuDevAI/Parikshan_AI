@@ -146,6 +146,40 @@ export async function registerRoutes(
       res.json({ message: "Logged out" });
   });
 
+  // Change Password endpoint
+  app.post("/api/auth/change-password", requireAuth, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+      
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      }
+      
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+      
+      // Update password
+      await storage.updateUserPassword(user.id, newPassword);
+      
+      res.json({ message: "Password changed successfully" });
+    } catch (e) {
+      console.error("Password change error:", e);
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
   // --- SCHOOLS ---
   app.get(api.schools.get.path, async (req, res) => {
       const school = await storage.getSchool(Number(req.params.id));
@@ -2402,6 +2436,42 @@ export async function registerRoutes(
           });
       } catch (e: any) {
           res.status(400).json({ message: e.message });
+      }
+  });
+
+  app.patch("/api/admin/schools/:id", requireAuth, requireRole(USER_ROLES.SUPER_ADMIN), async (req, res) => {
+      try {
+          const schoolId = Number(req.params.id);
+          if (isNaN(schoolId)) {
+              return res.status(400).json({ message: "Invalid school ID" });
+          }
+          const { name, address, tier, isActive } = req.body;
+          const updates: any = {};
+          if (name !== undefined) updates.name = name;
+          if (address !== undefined) updates.address = address;
+          if (tier !== undefined) updates.tier = tier;
+          if (isActive !== undefined) updates.isActive = isActive;
+          
+          const school = await storage.updateSchool(schoolId, updates);
+          if (!school) {
+              return res.status(404).json({ message: "School not found" });
+          }
+          res.json(school);
+      } catch (e: any) {
+          res.status(400).json({ message: e.message });
+      }
+  });
+
+  app.delete("/api/admin/schools/:id", requireAuth, requireRole(USER_ROLES.SUPER_ADMIN), async (req, res) => {
+      try {
+          const schoolId = Number(req.params.id);
+          if (isNaN(schoolId)) {
+              return res.status(400).json({ message: "Invalid school ID" });
+          }
+          await storage.deleteSchool(schoolId);
+          res.json({ success: true, message: "School and all related data deleted successfully" });
+      } catch (e: any) {
+          res.status(500).json({ message: e.message });
       }
   });
 

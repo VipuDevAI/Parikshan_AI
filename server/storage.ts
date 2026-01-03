@@ -47,6 +47,8 @@ export interface IStorage {
     createUser(user: InsertUser): Promise<User>;
     getTeachers(schoolId: number): Promise<User[]>;
     updateUserPhoto(id: number, photoUrl: string): Promise<User | undefined>;
+    updateUserPassword(id: number, newPassword: string): Promise<User | undefined>;
+    updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School | undefined>;
 
     // Students
     getStudent(id: number): Promise<Student | undefined>;
@@ -160,6 +162,15 @@ export class DatabaseStorage implements IStorage {
     }
     async updateUserPhoto(id: number, photoUrl: string): Promise<User | undefined> {
         const [updated] = await db.update(users).set({ avatarUrl: photoUrl }).where(eq(users.id, id)).returning();
+        return updated;
+    }
+    async updateUserPassword(id: number, newPassword: string): Promise<User | undefined> {
+        const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+        const [updated] = await db.update(users).set({ password: hashedPassword }).where(eq(users.id, id)).returning();
+        return updated;
+    }
+    async updateSchool(id: number, updates: Partial<InsertSchool>): Promise<School | undefined> {
+        const [updated] = await db.update(schools).set(updates).where(eq(schools.id, id)).returning();
         return updated;
     }
 
@@ -810,6 +821,33 @@ export class DatabaseStorage implements IStorage {
     // === SCHOOL MANAGEMENT ===
     async getAllSchools(): Promise<School[]> {
         return db.select().from(schools);
+    }
+
+    async deleteSchool(id: number): Promise<void> {
+        // Get class IDs for this school first (sections link via classId)
+        const schoolClasses = await db.select({ id: classes.id }).from(classes).where(eq(classes.schoolId, id));
+        const classIds = schoolClasses.map(c => c.id);
+        
+        // Delete all related data in order (respecting foreign keys)
+        await db.delete(schoolConfig).where(eq(schoolConfig.schoolId, id));
+        await db.delete(faceEncodings).where(eq(faceEncodings.schoolId, id));
+        await db.delete(alerts).where(eq(alerts.schoolId, id));
+        await db.delete(attendance).where(eq(attendance.schoolId, id));
+        await db.delete(substitutions).where(eq(substitutions.schoolId, id));
+        await db.delete(leaveRequests).where(eq(leaveRequests.schoolId, id));
+        await db.delete(timetable).where(eq(timetable.schoolId, id));
+        await db.delete(cameras).where(eq(cameras.schoolId, id));
+        await db.delete(students).where(eq(students.schoolId, id));
+        // Delete sections by classIds (sections doesn't have schoolId directly)
+        if (classIds.length > 0) {
+            for (const classId of classIds) {
+                await db.delete(sections).where(eq(sections.classId, classId));
+            }
+        }
+        await db.delete(classes).where(eq(classes.schoolId, id));
+        await db.delete(wings).where(eq(wings.schoolId, id));
+        await db.delete(users).where(eq(users.schoolId, id));
+        await db.delete(schools).where(eq(schools.id, id));
     }
 
     // === TIMETABLE DELETE ===
