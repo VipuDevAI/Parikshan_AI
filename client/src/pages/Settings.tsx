@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Settings2, Camera, Clock, Shield, Bell, Save, Building2, Users, BookOpen, Eye, EyeOff, Calendar, Download, Play, FileSpreadsheet, FileText, Key, CheckCircle, XCircle, AlertTriangle, Plus, Pencil, Trash2, Layers, Lock } from "lucide-react";
+import { Loader2, Settings2, Camera, Clock, Shield, Bell, Save, Building2, Users, BookOpen, Eye, EyeOff, Calendar, Download, Play, FileSpreadsheet, FileText, Key, CheckCircle, XCircle, AlertTriangle, Plus, Pencil, Trash2, Layers, Lock, HardDrive } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -210,6 +210,301 @@ function AIKeyConfiguration({ canEdit }: { canEdit: boolean }) {
                                     >
                                         {deleteMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                         Remove Key
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+interface StorageStatusResponse {
+    isConfigured: boolean;
+    provider: string | null;
+    bucket: string | null;
+    region: string | null;
+    endpoint: string | null;
+    configuredAt: string | null;
+}
+
+const STORAGE_PROVIDERS = [
+    { value: 'AWS_S3', label: 'Amazon S3' },
+    { value: 'MINIO', label: 'MinIO' },
+    { value: 'WASABI', label: 'Wasabi' },
+    { value: 'BACKBLAZE', label: 'Backblaze B2' },
+    { value: 'CLOUDFLARE_R2', label: 'Cloudflare R2' },
+    { value: 'DIGITAL_OCEAN_SPACES', label: 'DigitalOcean Spaces' },
+];
+
+function StorageConfiguration({ canEdit }: { canEdit: boolean }) {
+    const { toast } = useToast();
+    const [provider, setProvider] = useState("");
+    const [bucket, setBucket] = useState("");
+    const [region, setRegion] = useState("");
+    const [endpoint, setEndpoint] = useState("");
+    const [accessKey, setAccessKey] = useState("");
+    const [secretKey, setSecretKey] = useState("");
+    const [showSecrets, setShowSecrets] = useState(false);
+    
+    const { data: storageStatus, isLoading } = useQuery<StorageStatusResponse>({
+        queryKey: ['/api/school-config/storage-status'],
+    });
+    
+    // Initialize form state from existing configuration
+    useEffect(() => {
+        if (storageStatus) {
+            setProvider(storageStatus.provider || "");
+            setBucket(storageStatus.bucket || "");
+            setRegion(storageStatus.region || "");
+            setEndpoint(storageStatus.endpoint || "");
+        }
+    }, [storageStatus]);
+    
+    const saveMutation = useMutation({
+        mutationFn: async (data: { provider: string; bucket: string; region: string; endpoint: string; accessKey: string; secretKey: string }) => {
+            return apiRequest('POST', '/api/school-config/storage', data);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['/api/school-config/storage-status'] });
+            setAccessKey("");
+            setSecretKey("");
+            toast({ title: "Storage Configured", description: "Your S3-compatible storage has been configured securely." });
+        },
+        onError: (error: any) => {
+            toast({ title: "Error", description: error.message || "Failed to save storage configuration", variant: "destructive" });
+        },
+    });
+    
+    const deleteMutation = useMutation({
+        mutationFn: async () => {
+            return apiRequest('DELETE', '/api/school-config/storage', {});
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['/api/school-config/storage-status'] });
+            setProvider("");
+            setBucket("");
+            setRegion("");
+            setEndpoint("");
+            toast({ title: "Storage Removed", description: "Storage configuration has been removed." });
+        },
+        onError: (error: any) => {
+            toast({ title: "Error", description: error.message || "Failed to remove storage configuration", variant: "destructive" });
+        },
+    });
+    
+    const testMutation = useMutation({
+        mutationFn: async () => {
+            return apiRequest('POST', '/api/school-config/storage/test', {});
+        },
+        onSuccess: async (response) => {
+            const data = await response.json();
+            toast({ title: "Test Result", description: data.message || "Storage connection validated." });
+        },
+        onError: (error: any) => {
+            toast({ title: "Test Failed", description: error.message || "Failed to test storage connection", variant: "destructive" });
+        },
+    });
+    
+    const handleSave = () => {
+        // Use current state values (which are initialized from storageStatus)
+        const finalProvider = provider;
+        const finalBucket = bucket;
+        
+        if (!finalProvider || !finalBucket) {
+            toast({ title: "Missing Fields", description: "Provider and bucket are required.", variant: "destructive" });
+            return;
+        }
+        
+        // For credentials: if updating existing config, require both keys to be provided together
+        // or neither (to just update other settings)
+        if (storageStatus?.isConfigured && !accessKey && !secretKey) {
+            toast({ title: "Credentials Required", description: "Please provide both access key and secret key to update the configuration.", variant: "destructive" });
+            return;
+        }
+        
+        if (!accessKey || !secretKey) {
+            toast({ title: "Missing Credentials", description: "Access key and secret key are required.", variant: "destructive" });
+            return;
+        }
+        
+        saveMutation.mutate({ provider: finalProvider, bucket: finalBucket, region, endpoint, accessKey, secretKey });
+    };
+    
+    if (isLoading) {
+        return (
+            <Card>
+                <CardContent className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                </CardContent>
+            </Card>
+        );
+    }
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <HardDrive className="w-5 h-5" />
+                    S3-Compatible Storage
+                </CardTitle>
+                <CardDescription>
+                    Configure cloud storage for face photos, documents, and file uploads. Supports AWS S3, MinIO, Wasabi, and other S3-compatible services.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/30">
+                    {storageStatus?.isConfigured ? (
+                        <>
+                            <CheckCircle className="w-8 h-8 text-green-500" />
+                            <div>
+                                <p className="font-medium">Storage Configured</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {STORAGE_PROVIDERS.find(p => p.value === storageStatus.provider)?.label || storageStatus.provider} - {storageStatus.bucket}
+                                    {storageStatus.region && ` (${storageStatus.region})`}
+                                </p>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <XCircle className="w-8 h-8 text-red-500" />
+                            <div>
+                                <p className="font-medium">Not Configured</p>
+                                <p className="text-sm text-muted-foreground">
+                                    Add your S3-compatible storage credentials to enable file uploads and face photo storage.
+                                </p>
+                            </div>
+                        </>
+                    )}
+                </div>
+                
+                {canEdit && (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="storage-provider">Storage Provider</Label>
+                                <Select
+                                    value={provider}
+                                    onValueChange={setProvider}
+                                >
+                                    <SelectTrigger id="storage-provider" data-testid="select-storage-provider">
+                                        <SelectValue placeholder="Select provider" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {STORAGE_PROVIDERS.map(p => (
+                                            <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="storage-bucket">Bucket Name</Label>
+                                <Input
+                                    id="storage-bucket"
+                                    placeholder="my-school-bucket"
+                                    value={bucket}
+                                    onChange={(e) => setBucket(e.target.value)}
+                                    data-testid="input-storage-bucket"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="storage-region">Region (optional)</Label>
+                                <Input
+                                    id="storage-region"
+                                    placeholder="us-east-1 or ap-south-1"
+                                    value={region}
+                                    onChange={(e) => setRegion(e.target.value)}
+                                    data-testid="input-storage-region"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="storage-endpoint">Custom Endpoint (optional)</Label>
+                                <Input
+                                    id="storage-endpoint"
+                                    placeholder="https://s3.example.com"
+                                    value={endpoint}
+                                    onChange={(e) => setEndpoint(e.target.value)}
+                                    data-testid="input-storage-endpoint"
+                                />
+                                <p className="text-xs text-muted-foreground">Required for MinIO, Wasabi, etc.</p>
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="storage-access-key">Access Key ID</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="storage-access-key"
+                                        type={showSecrets ? "text" : "password"}
+                                        placeholder="AKIAIOSFODNN7EXAMPLE"
+                                        value={accessKey}
+                                        onChange={(e) => setAccessKey(e.target.value)}
+                                        data-testid="input-storage-access-key"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="storage-secret-key">Secret Access Key</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="storage-secret-key"
+                                        type={showSecrets ? "text" : "password"}
+                                        placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                                        value={secretKey}
+                                        onChange={(e) => setSecretKey(e.target.value)}
+                                        data-testid="input-storage-secret-key"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowSecrets(!showSecrets)}
+                                data-testid="button-toggle-storage-secrets"
+                            >
+                                {showSecrets ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                                {showSecrets ? "Hide" : "Show"} Credentials
+                            </Button>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                onClick={handleSave}
+                                disabled={saveMutation.isPending}
+                                data-testid="button-save-storage"
+                            >
+                                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                                Save Storage Configuration
+                            </Button>
+                            {storageStatus?.isConfigured && (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => testMutation.mutate()}
+                                        disabled={testMutation.isPending}
+                                        data-testid="button-test-storage"
+                                    >
+                                        {testMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                        Test Connection
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        onClick={() => deleteMutation.mutate()}
+                                        disabled={deleteMutation.isPending}
+                                        data-testid="button-remove-storage"
+                                    >
+                                        {deleteMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                        Remove Configuration
                                     </Button>
                                 </>
                             )}
@@ -1394,7 +1689,7 @@ export default function SettingsPage() {
             </div>
             
             <Tabs defaultValue={isWingAdmin ? "wing" : "academic"} className="w-full">
-                <TabsList className={`grid w-full ${isWingAdmin ? 'grid-cols-2 max-w-md' : 'grid-cols-7'}`} data-testid="tabs-settings">
+                <TabsList className={`grid w-full ${isWingAdmin ? 'grid-cols-2 max-w-md' : 'grid-cols-8'}`} data-testid="tabs-settings">
                     {!isWingAdmin && (
                         <>
                             <TabsTrigger value="academic" data-testid="tab-academic">
@@ -1416,6 +1711,10 @@ export default function SettingsPage() {
                             <TabsTrigger value="cameras" data-testid="tab-cameras">
                                 <Shield className="w-4 h-4 mr-2" />
                                 Cameras
+                            </TabsTrigger>
+                            <TabsTrigger value="storage" data-testid="tab-storage">
+                                <HardDrive className="w-4 h-4 mr-2" />
+                                Storage
                             </TabsTrigger>
                         </>
                     )}
@@ -2141,6 +2440,10 @@ export default function SettingsPage() {
                     </Card>
                     
                     <SectionCameraControls schoolId={user?.schoolId || 1} cameras={cameras || []} />
+                </TabsContent>
+                
+                <TabsContent value="storage" className="mt-6 space-y-6">
+                    <StorageConfiguration canEdit={canEdit} />
                 </TabsContent>
                 
                 <TabsContent value="wing" className="mt-6 space-y-6">
