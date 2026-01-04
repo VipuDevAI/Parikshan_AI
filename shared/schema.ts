@@ -366,6 +366,15 @@ export const schoolConfig = pgTable("school_config", {
   academicYear: text("academic_year").default("2024-25"), // Current academic year e.g. "2024-25"
   academicYearStartMonth: integer("academic_year_start_month").default(4), // April = 4
   academicYearEndMonth: integer("academic_year_end_month").default(3), // March = 3
+  
+  // S3-Compatible Storage Configuration
+  storageProvider: text("storage_provider"), // AWS_S3, MINIO, WASABI, BACKBLAZE, CLOUDFLARE_R2, DIGITAL_OCEAN_SPACES
+  storageBucket: text("storage_bucket"),
+  storageRegion: text("storage_region"), // us-east-1, ap-south-1, etc.
+  storageEndpoint: text("storage_endpoint"), // Custom endpoint for non-AWS S3-compatible services
+  storageAccessKey: text("storage_access_key"),
+  storageSecretKey: text("storage_secret_key"), // Encrypted in production
+  storageConfiguredAt: timestamp("storage_configured_at"),
 });
 
 // 12. Master Timetable (Frozen version)

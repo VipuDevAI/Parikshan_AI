@@ -1830,6 +1830,143 @@ export async function registerRoutes(
       }
   });
 
+  // --- S3 STORAGE CONFIGURATION ---
+  app.get("/api/school-config/storage-status", requireAuth, requireMinRole(USER_ROLES.PRINCIPAL), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const config = await storage.getSchoolConfig(req.user.schoolId);
+          res.json({
+              isConfigured: !!(config?.storageProvider && config?.storageBucket && config?.storageAccessKey),
+              provider: config?.storageProvider || null,
+              bucket: config?.storageBucket || null,
+              region: config?.storageRegion || null,
+              endpoint: config?.storageEndpoint || null,
+              configuredAt: config?.storageConfiguredAt || null
+          });
+      } catch (e: any) {
+          res.status(500).json({ message: e.message });
+      }
+  });
+
+  app.post("/api/school-config/storage", requireAuth, requireMinRole(USER_ROLES.PRINCIPAL), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          const { provider, bucket, region, endpoint, accessKey, secretKey } = req.body;
+          
+          if (!provider || !bucket || !accessKey || !secretKey) {
+              return res.status(400).json({ message: "Provider, bucket, access key, and secret key are required" });
+          }
+          
+          const validProviders = ['AWS_S3', 'MINIO', 'WASABI', 'BACKBLAZE', 'CLOUDFLARE_R2', 'DIGITAL_OCEAN_SPACES'];
+          if (!validProviders.includes(provider)) {
+              return res.status(400).json({ message: "Invalid storage provider" });
+          }
+          
+          // Encrypt sensitive credentials
+          const encryptedAccessKey = encrypt(accessKey);
+          const encryptedSecretKey = encrypt(secretKey);
+
+          const config = await storage.updateSchoolConfig(req.user.schoolId, {
+              storageProvider: provider,
+              storageBucket: bucket,
+              storageRegion: region || null,
+              storageEndpoint: endpoint || null,
+              storageAccessKey: encryptedAccessKey,
+              storageSecretKey: encryptedSecretKey,
+              storageConfiguredAt: new Date()
+          });
+
+          if (!config) {
+              return res.status(404).json({ message: "School configuration not found" });
+          }
+
+          res.json({
+              success: true,
+              message: "Storage configuration saved successfully",
+              configuredAt: config.storageConfiguredAt
+          });
+      } catch (e: any) {
+          res.status(500).json({ message: e.message });
+      }
+  });
+
+  app.delete("/api/school-config/storage", requireAuth, requireMinRole(USER_ROLES.PRINCIPAL), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+
+          const config = await storage.updateSchoolConfig(req.user.schoolId, {
+              storageProvider: null,
+              storageBucket: null,
+              storageRegion: null,
+              storageEndpoint: null,
+              storageAccessKey: null,
+              storageSecretKey: null,
+              storageConfiguredAt: null
+          });
+
+          if (!config) {
+              return res.status(404).json({ message: "School configuration not found" });
+          }
+
+          res.json({ success: true, message: "Storage configuration removed" });
+      } catch (e: any) {
+          res.status(500).json({ message: e.message });
+      }
+  });
+
+  app.post("/api/school-config/storage/test", requireAuth, requireMinRole(USER_ROLES.PRINCIPAL), async (req, res) => {
+      try {
+          if (!req.user?.schoolId) {
+              return res.status(401).json({ message: "School context required" });
+          }
+          
+          const { provider, bucket, region, endpoint, accessKey, secretKey } = req.body;
+          
+          // Use provided values or fetch from config
+          let testProvider = provider;
+          let testBucket = bucket;
+          let testRegion = region;
+          let testEndpoint = endpoint;
+          let testAccessKey = accessKey;
+          let testSecretKey = secretKey;
+          
+          if (!testProvider || !testBucket || !testAccessKey || !testSecretKey) {
+              const config = await storage.getSchoolConfig(req.user.schoolId);
+              if (config) {
+                  testProvider = testProvider || config.storageProvider;
+                  testBucket = testBucket || config.storageBucket;
+                  testRegion = testRegion || config.storageRegion;
+                  testEndpoint = testEndpoint || config.storageEndpoint;
+                  if (!testAccessKey && config.storageAccessKey) {
+                      try { testAccessKey = decrypt(config.storageAccessKey); } catch { testAccessKey = config.storageAccessKey; }
+                  }
+                  if (!testSecretKey && config.storageSecretKey) {
+                      try { testSecretKey = decrypt(config.storageSecretKey); } catch { testSecretKey = config.storageSecretKey; }
+                  }
+              }
+          }
+          
+          if (!testProvider || !testBucket || !testAccessKey || !testSecretKey) {
+              return res.status(400).json({ message: "Storage configuration incomplete" });
+          }
+
+          // Test connection by listing bucket (requires aws-sdk or similar)
+          // For now, validate configuration format
+          res.json({ 
+              success: true, 
+              message: "Storage configuration appears valid. Connection test will be available when S3 SDK is configured."
+          });
+      } catch (e: any) {
+          res.status(400).json({ success: false, message: e.message || "Failed to test storage connection" });
+      }
+  });
+
   // --- WHATSAPP WEBHOOK CONFIGURATION ---
   app.post("/api/school-config/whatsapp-webhook", requireAuth, requireMinRole(USER_ROLES.PRINCIPAL), async (req, res) => {
       try {
