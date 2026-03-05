@@ -79,20 +79,27 @@ export default function DashboardPage() {
   const config = roleConfig[user.role] || roleConfig.student;
 
   return (
-    <PageLayout>
-      <PageHeader>
-        <div className="flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 py-3 sm:py-4">
+    <div className="min-h-screen cosmic-dashboard-bg dark:cosmic-dashboard-bg">
+      {/* Cosmic Header */}
+      <header className="cosmic-header sticky top-0 z-50">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+          {/* Logo */}
           <div className="flex items-center gap-3">
             <img 
-              src={BRAND.logo} 
+              src={BRAND.loginLogo} 
               alt={BRAND.name}
-              className="h-12 sm:h-14 object-contain"
+              className="h-10 w-10 object-contain"
             />
+            <div className="hidden sm:block">
+              <h1 className="text-lg font-bold text-gray-900 dark:text-white">PRASHNAKOSH</h1>
+              <p className="text-xs text-gray-500 dark:text-cyan-400 tracking-wider">JIGNYASA</p>
+            </div>
           </div>
 
+          {/* Right Side */}
           <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
-            <Button variant="ghost" size="icon" disabled title="Notifications coming soon" data-testid="button-notifications" className="hidden sm:flex">
+            <Button variant="ghost" size="icon" disabled title="Notifications coming soon" data-testid="button-notifications" className="hidden sm:flex text-gray-600 dark:text-gray-300">
               <Bell className="w-5 h-5" />
             </Button>
             
@@ -100,15 +107,15 @@ export default function DashboardPage() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2" data-testid="button-user-menu">
                   <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white text-sm">
                       {user.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="text-left hidden sm:block">
-                    <p className="text-sm font-medium">{user.name}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</p>
                     <Badge className={config.color} size="sm">{config.label}</Badge>
                   </div>
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -120,12 +127,13 @@ export default function DashboardPage() {
             </DropdownMenu>
           </div>
         </div>
-      </PageHeader>
+      </header>
 
-      <PageContent>
+      {/* Main Content */}
+      <main className="p-4 sm:p-6 max-w-7xl mx-auto">
         <div className="mb-4 sm:mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground">Welcome, {user.name}</h2>
-          <p className="text-sm sm:text-base text-muted-foreground">Here's what's happening today</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Welcome, {user.name}</h2>
+          <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400">Here's what's happening today</p>
         </div>
 
         {user.role === "teacher" && <TeacherDashboard />}
@@ -135,9 +143,13 @@ export default function DashboardPage() {
         {user.role === "principal" && <PrincipalDashboard />}
         {user.role === "exam_committee" && <ExamCommitteeDashboard />}
         {(user.role === "admin" || user.role === "super_admin") && <AdminDashboard />}
-      </PageContent>
-      <AppFooter />
-    </PageLayout>
+      </main>
+
+      {/* Footer */}
+      <footer className="py-4 px-6 text-center text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-white/10 bg-white/60 dark:bg-slate-900/40">
+        <p>© 2025 Prashnakosh. Powered by <span className="gradient-text-cosmic font-semibold">SmartGenEduX</span></p>
+      </footer>
+    </div>
   );
 }
 
