@@ -1,0 +1,36 @@
+# Parikshan.AI Edge Agent Configuration
+# Copy this file to agent.yaml and update with your school's settings
+
+agent:
+  id: "your-agent-id"  # Provided when you register the agent in dashboard
+  secret: "your-agent-secret"  # One-time secret from registration
+
+api:
+  url: "https://parikshan.ai"  # Parikshan.AI cloud URL
+
+school:
+  code: "YOUR_SCHOOL_CODE"  # Your school code for login
+
+detection:
+  face: true           # Enable face recognition for attendance
+  discipline: true     # Enable fight/running/crowding detection
+  attention: false     # Enable student attention monitoring
+  uniform: false       # Enable uniform violation detection
+
+thresholds:
+  face: 0.80           # Face recognition confidence threshold (0.0 - 1.0)
+  discipline: 0.85     # Discipline event confidence threshold
+
+performance:
+  max_cameras_per_worker: 10  # Maximum cameras per processing thread
+  frame_skip_count: 5         # Process every Nth frame (higher = less CPU)
+  detection_interval_ms: 1000 # Minimum ms between detections per camera
+
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
+  file: /app/logs/agent.log
+
+queue:
+  db_path: /app/data/queue.db  # SQLite queue for offline resilience
+  batch_size: 50               # Events per cloud sync batch
+  sync_interval_seconds: 5     # How often to sync with cloud
