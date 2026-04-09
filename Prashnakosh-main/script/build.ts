@@ -55,7 +55,8 @@ async function buildAll() {
     define: {
       "process.env.NODE_ENV": '"production"',
     },
-    minify: true,
+    minify: false,  // Disable minification to prevent drizzle bundling issues
+    keepNames: true,  // Preserve function and class names
     external: externals,
     logLevel: "info",
   });
